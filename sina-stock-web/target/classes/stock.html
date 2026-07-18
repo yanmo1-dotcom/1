@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>A股实时行情中心</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        
+        /* 搜索栏样式 */
+        .search-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        input { padding: 12px; width: 300px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; transition: 0.3s; }
+        input:focus { border-color: #e74c3c; }
+        
+        /* 通用按钮样式 */
+        button { padding: 12px 25px; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        
+        .btn-search { background: #e74c3c; }
+        .btn-search:hover { background: #c0392b; }
+
+        /* 聚合分析区域 */
+        .analysis-panel { 
+            text-align: center; margin: 20px 0; padding: 20px; 
+            background: #fff8f8; border: 1px dashed #ffcccc; border-radius: 8px; 
+        }
+        .panel-title { font-weight: bold; color: #555; margin-right: 15px; display: inline-block; line-height: 40px;}
+        
+        .rank-btn { margin: 0 5px; font-size: 14px; padding: 10px 20px; }
+        .btn-vol { background-color: #e67e22; } /* 橙色 */
+        .btn-amt { background-color: #8e44ad; } /* 紫色 */
+        .btn-change { background-color: #27ae60; } /* 绿色 */
+
+        /* 表格样式 */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 15px; }
+        th, td { padding: 15px 10px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #fafafa; color: #666; font-weight: 600; }
+        tr:hover { background-color: #f9f9f9; }
+        
+        .price-up { color: #e74c3c; font-weight: bold; }
+        .price-down { color: #2ecc71; font-weight: bold; }
+        .vol { color: #666; font-size: 0.9em; }
+        
+        #loading { text-align: center; padding: 20px; color: #999; display: none; }
+        .tip-text { font-size: 12px; color: #999; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 A股实时行情查询</h1>
+        
+        <!-- 搜索区域 -->
+        <div class="search-bar">
+            <input type="text" id="keyword" placeholder="输入股票名称或代码 (如: 茅台, sh600519)" onkeypress="if(event.keyCode==13) doSearch()">
+            <button class="btn-search" onclick="doSearch()">搜索</button>
+        </div>
+
+        <!-- ⬇️ 市场聚合按钮区域 ⬇️ -->
+        <div class="analysis-panel">
+            <span class="panel-title">📊 市场聚合分析：</span>
+            
+            <button onclick="loadRanking('volume')" class="rank-btn btn-vol">
+                🔥 成交量前十
+            </button>
+            
+            <button onclick="loadRanking('amount')" class="rank-btn btn-amt">
+                💰 成交额前十
+            </button>
+            
+            <button onclick="loadRanking('change')" class="rank-btn btn-change">
+                🚀 涨幅榜前十
+            </button>
+            
+            <div class="tip-text">
+                * 数据由后台每3分钟自动扫描全市场生成，点击按钮即时排序
+            </div>
+        </div>
+        <!-- ⬆️ 新增结束 ⬆️ -->
+
+        <div id="loading">正在查询新浪数据中心...</div>
+        
+        <table id="resultTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">排名</th> <!-- ✅ 补上了这一列 -->
+                    <th>股票名称</th>
+                    <th>代码</th>
+                    <th>当前价格</th>
+                    <th>涨跌幅</th>
+                    <th>成交量</th>
+                    <th>成交额</th>
+                    <th>更新时间</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        // 搜索功能
+        async function doSearch() {
+            const keyword = document.getElementById('keyword').value.trim();
+            if (!keyword) return alert("请输入搜索内容");
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultTable').style.display = 'none';
+            document.getElementById('tableBody').innerHTML = '';
+
+            try {
+                const res = await fetch(`/api/search?keyword=${encodeURIComponent(keyword)}`);
+                const data = await res.json();
+
+                document.getElementById('loading').style.display = 'none';
+                
+                if (data.length === 0) {
+                    alert("未找到相关股票，请检查关键词");
+                    return;
+                }
+
+                renderTable(data, false); // false 表示不显示排名
+            } catch (err) {
+                document.getElementById('loading').style.display = 'none';
+                alert("查询失败: " + err);
+            }
+        }
+
+        // 排行榜功能
+        async function loadRanking(type) {
+            const tableBody = document.getElementById('tableBody');
+            const resultTable = document.getElementById('resultTable');
+            
+            document.getElementById('loading').style.display = 'block';
+            resultTable.style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/ranking?type=${type}&top=10`);
+                const data = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (!data || data.length === 0) {
+                    resultTable.style.display = 'table';
+                    tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red; padding:20px;">暂无数据，后台可能正在首次扫描中，请稍后重试...</td></tr>';
+                    return;
+                }
+
+                renderTable(data, true); // true 表示显示排名
+            } catch (err) {
+                document.getElementById('loading').style.display = 'none';
+                resultTable.style.display = 'table';
+                tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">加载失败: ' + err + '</td></tr>';
+            }
+        }
+
+        // 统一渲染表格函数
+        function renderTable(data, showRank) {
+            const resultTable = document.getElementById('resultTable');
+            const tbody = document.getElementById('tableBody');
+            
+            resultTable.style.display = 'table';
+            tbody.innerHTML = '';
+
+            data.forEach((stock, index) => {
+                const isUp = stock.changePercent >= 0;
+                const colorClass = isUp ? 'price-up' : 'price-down';
+                const arrow = isUp ? '▲' : '▼';
+                
+                // 格式化数字
+                const volStr = (stock.volume / 100).toLocaleString() + '手';
+                const amtStr = (stock.amount / 100000000).toFixed(2) + '亿';
+
+                let rankHtml = '';
+                if (showRank) {
+                    // 前三名给个特殊颜色
+                    let rankColor = '#333';
+                    if(index === 0) rankColor = '#e74c3c';
+                    if(index === 1) rankColor = '#e67e22';
+                    if(index === 2) rankColor = '#f1c40f';
+                    
+                    rankHtml = `<td style="font-weight:bold; color:${rankColor}">#${index + 1}</td>`;
+                } else {
+                    rankHtml = `<td>-</td>`; // 搜索模式下排名列显示横杠
+                }
+
+                const row = `
+                    <tr>
+                        ${rankHtml}
+                        <td style="font-weight:bold">${stock.name}</td>
+                        <td>${stock.code}</td>
+                        <td class="${colorClass}" style="font-size:1.1em">${stock.currentPrice.toFixed(2)}</td>
+                        <td class="${colorClass}">${arrow} ${Math.abs(stock.changePercent).toFixed(2)}%</td>
+                        <td class="vol">${volStr}</td>
+                        <td class="vol">${amtStr}</td>
+                        <td style="font-size:0.85em; color:#999">${stock.time}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+    </script>
+</body>
+</html>
