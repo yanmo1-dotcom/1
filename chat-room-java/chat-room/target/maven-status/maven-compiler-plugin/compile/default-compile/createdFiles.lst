@@ -1,0 +1,7 @@
+com\chatroom\Message.class
+com\chatroom\App.class
+com\chatroom\client\ChatClient.class
+com\chatroom\server\ChatServer.class
+com\chatroom\server\Room.class
+com\chatroom\server\ClientHandler.class
+com\chatroom\server\LoggerService.class
