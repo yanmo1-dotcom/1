@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Web 聊天室 (Token版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        
+        /* 登录框样式 */
+        .login-container { width: 360px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        .login-container h2 { margin-bottom: 20px; color: #333; }
+        .login-container input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        .login-container button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+        .toggle-link { margin-top: 15px; font-size: 14px; color: #007bff; cursor: pointer; }
+        .admin-link { margin-top: 10px; font-size: 12px; color: #999; cursor: pointer; text-decoration: underline; }
+        
+        /* 主容器：三栏布局 */
+        .chat-container { width: 1100px; height: 650px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; overflow: hidden; }
+        
+        /* 左侧栏：导航与操作 */
+        .sidebar { width: 280px; background: #f8f9fa; border-right: 1px solid #eee; display: flex; flex-direction: column; overflow-y: auto; }
+        .user-info { padding: 20px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .logout-btn { font-size: 12px; color: #dc3545; cursor: pointer; }
+        
+        /* 公共大厅入口 */
+        .lobby-entry { 
+            margin: 15px; padding: 12px; background: white; border: 1px solid #e9ecef; border-radius: 8px; 
+            cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center;
+            font-weight: 500; color: #333;
+        }
+        .lobby-entry:hover { background: #e9ecef; }
+        .lobby-entry.active { background: #007bff; color: white; border-color: #007bff; }
+        .online-badge { background: #28a745; color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; min-width: 20px; text-align: center; }
+        
+        /* 操作区块 */
+        .action-section { padding: 0 15px; margin-bottom: 15px; }
+        .action-title { font-size: 12px; color: #6c757d; font-weight: bold; margin-bottom: 8px; }
+        .action-input-group { display: flex; gap: 5px; margin-bottom: 10px; }
+        .action-input-group input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; outline: none; font-size: 13px; }
+        .action-input-group button { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-green { background: #28a745; }
+        .btn-yellow { background: #ffc107; color: #333; }
+
+        /* 列表容器 (好友/群组) */
+        .list-container { display: flex; flex-direction: column; gap: 2px; }
+        .list-item {
+            padding: 10px 15px; cursor: pointer; font-size: 14px; border-radius: 6px;
+            transition: background 0.2s; display: flex; align-items: center;
+        }
+        .list-item:hover { background: #e9ecef; }
+        .list-item.active { background: #007bff; color: white; }
+        .list-item .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #bbb; margin-right: 8px; flex-shrink: 0; }
+        .list-item .online-dot.on { background: #28a745; }
+        .list-item.active .online-dot.on { background: #7dffb0; }
+        .empty-tip { padding: 10px 15px; color: #999; font-size: 12px; text-align: center; }
+
+        /* 好友申请项 */
+        .friend-request-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 10px; margin-bottom: 4px; background: #fff; border: 1px solid #e9ecef; border-radius: 6px; font-size: 13px;
+        }
+        .friend-request-item .req-name { color: #333; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .friend-request-item .req-actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .friend-request-item button { padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; color: white; font-size: 12px; }
+        .btn-accept { background: #28a745; }
+        .btn-reject { background: #dc3545; }
+        .req-count-badge { background: #dc3545; color: white; font-size: 11px; padding: 1px 6px; border-radius: 10px; margin-left: 6px; }
+
+        /* 中间栏：聊天区 */
+        .main-chat { flex: 1; display: flex; flex-direction: column; background: #fff; border-right: 1px solid #eee; }
+        .chat-header { padding: 15px 20px; border-bottom: 1px solid #eee; font-weight: bold; font-size: 16px; background: #fff; height: 60px; display: flex; align-items: center; }
+        
+        .message-area { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #fff; }
+        .msg { max-width: 70%; padding: 10px 15px; border-radius: 18px; font-size: 14px; line-height: 1.4; word-wrap: break-word; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .msg.self { align-self: flex-end; background: #007bff; color: white; border-bottom-right-radius: 2px; }
+        .msg.other { align-self: flex-start; background: #e9ecef; color: #333; border-bottom-left-radius: 2px; }
+        
+        .input-area { padding: 15px 20px; border-top: 1px solid #eee; display: flex; gap: 10px; background: #fafafa; }
+        .input-area input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 25px; outline: none; }
+        .input-area button { padding: 12px 30px; background: #007bff; color: white; border: none; border-radius: 25px; cursor: pointer; }
+
+        /* 右侧栏：成员列表 (类似QQ群成员) */
+        .member-sidebar { width: 220px; background: #fcfcfc; display: none; flex-direction: column; }
+        .member-header { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; font-weight: bold; color: #333; }
+        .member-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .member-item { padding: 8px 10px; font-size: 13px; color: #555; display: flex; align-items: center; gap: 8px; border-radius: 4px; }
+        .member-item:hover { background: #f0f0f0; }
+        .member-avatar { width: 24px; height: 24px; background: #ddd; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px; color: #666; }
+    </style>
+</head>
+<body>
+
+    <!-- 登录框 -->
+    <div class="login-container" id="loginBox">
+        <h2 id="loginTitle">用户登录</h2>
+        <input type="text" id="username" placeholder="用户名" onkeypress="if(event.key==='Enter') handleAuth()">
+        <input type="password" id="password" placeholder="密码" onkeypress="if(event.key==='Enter') handleAuth()">
+        <button onclick="handleAuth()" id="authBtn">登录</button>
+        <div class="toggle-link" onclick="toggleMode()">没有账号？去注册</div>
+        <!-- 【新增】管理员重置密码入口 -->
+        <div class="admin-link" onclick="showAdminReset()">管理员重置密码</div>
+        <div id="errorMsg" style="color:red; font-size:12px; margin-top:10px;"></div>
+    </div>
+
+    <!-- 聊天主界面 -->
+    <div class="chat-container" id="chatBox">
+        <!-- 左侧：操作与列表 -->
+        <div class="sidebar">
+            <div class="user-info">
+                <span id="currentUserDisplay">用户</span>
+                <span class="logout-btn" onclick="logout()">退出</span>
+            </div>
+            
+            <!-- 公共大厅入口 -->
+            <div id="lobbyBtn" class="lobby-entry" onclick="switchToLobby()">
+                 公共大厅 <span id="onlineCount" class="online-badge">0</span>
+            </div>
+
+            <!-- 添加好友 & 好友列表 -->
+            <div class="action-section">
+                <div class="action-title">添加好友</div>
+                <div class="action-input-group">
+                    <input type="text" id="newFriendName" placeholder="输入用户名" onkeypress="if(event.key==='Enter') addFriend()">
+                    <button class="btn-green" onclick="addFriend()">+</button>
+                </div>
+                <div class="list-container" id="friendList">
+                    <div class="empty-tip">暂无好友</div>
+                </div>
+            </div>
+
+            <!-- 好友申请 -->
+            <div class="action-section">
+                <div class="action-title">好友申请<span id="reqCount" class="req-count-badge" style="display:none;">0</span></div>
+                <div class="list-container" id="friendRequestList">
+                    <div class="empty-tip">暂无申请</div>
+                </div>
+            </div>
+
+            <!-- 添加群组 & 群组列表 -->
+            <div class="action-section">
+                <div class="action-title">创建/加入群组</div>
+                <div class="action-input-group">
+                    <input type="text" id="newGroupName" placeholder="输入群名" onkeypress="if(event.key==='Enter') joinGroup()">
+                    <button class="btn-yellow" onclick="joinGroup()">+</button>
+                </div>
+                <div class="list-container" id="groupList">
+                    <div class="empty-tip">暂无群组</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间：聊天区 -->
+        <div class="main-chat">
+            <div class="chat-header" id="chatHeader">请选择左侧功能开始聊天</div>
+            <div class="message-area" id="messageArea">
+                <div class="empty-tip" style="margin-top: 50px;">暂无消息记录</div>
+            </div>
+            <div class="input-area" id="inputArea" style="display: none;">
+                <input type="text" id="msgInput" placeholder="输入消息..." onkeypress="if(event.key==='Enter') sendMsg()">
+                <button onclick="sendMsg()">发送</button>
+            </div>
+        </div>
+
+        <!-- 右侧：成员列表 (仅大厅/群聊显示) -->
+        <div class="member-sidebar" id="memberSidebar">
+            <div class="member-header" id="memberHeader">在线成员 (0)</div>
+            <div class="member-list" id="memberList">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+    </div>
+
+<script>
+    const BASE_URL = window.location.origin;
+    const API = `${BASE_URL}/api`;
+    const WS_URL = `${BASE_URL}/ws`;
+    
+    (function() {
+        let currentId = window.location.hash.substring(1); 
+        let isLoginMode = true;
+        const TOKEN_KEY = `myToken_${currentId || 'temp'}`;
+        const USER_KEY = `currentUser_${currentId || 'temp'}`;
+        const LOGINTIME_KEY = `loginTime_${currentId || 'temp'}`;
+        let currentToken = localStorage.getItem(TOKEN_KEY);
+
+        // 【新增】用于防止 WebSocket 重复订阅
+        let lobbySubscriptions = { messages: null, users: null };
+        // 【新增】标记是否为手动退出，防止误报被踢
+        let isManualLogout = false;
+        // 【核心新增】存储当前用户的登录时间戳，用于互踢校验（持久化，刷新页面不丢失）
+        let myLoginTime = Number(localStorage.getItem(LOGINTIME_KEY)) || 0;
+
+        let state = {
+            currentUser: null,
+            activeFriendId: null,
+            activeGroupId: null,
+            stompClient: null,
+            subscribedGroups: new Set(),
+            reconnectTimer: null,
+            isLobbyMode: false,
+            friendsData: [],
+            groupsData: [],
+            onlineFriendIds: new Set(),
+            friendRequests: []
+        };
+
+        window.onload = function() {
+            if (!currentId) {
+                document.getElementById('loginTitle').innerText = "请先登录";
+                return; 
+            }
+            document.title = `Web聊天室 - 账号${currentId}`;
+
+            if (currentToken) {
+                const storedUser = localStorage.getItem(USER_KEY);
+                if (storedUser) {
+                    try { 
+                        const parsedUser = JSON.parse(storedUser);
+                        if (String(parsedUser.id) !== String(currentId)) { logout(); return; }
+                        state.currentUser = parsedUser;
+                    } catch (e) { logout(); return; }
+                } else { logout(); return; }
+
+                Promise.all([
+                    fetchWithToken(`${API}/friends`).then(r => r.json()),
+                    fetchWithToken(`${API}/my-groups`).then(r => r.json())
+                ]).then(([friendData, groupData]) => {
+                    if (friendData.code === 200 && groupData.code === 200) {
+                        showChatInterface();
+                        state.friendsData = friendData.data || [];
+                        state.groupsData = groupData.data || [];
+                        renderFriendsList();
+                        renderGroupsList();
+                        
+                        if (groupData.data) state.currentUser.groups = groupData.data;
+                        connectWebSocket();
+                        
+                        // 默认进入大厅
+                        setTimeout(() => switchToLobby(), 500); 
+                    } else { logout(); }
+                }).catch(() => logout());
+            }
+        };
+
+        window.onbeforeunload = () => { 
+            if (state.stompClient && state.currentUser) {
+                try { state.stompClient.send("/app/lobby.leave", {}, JSON.stringify({ username: state.currentUser.username })); } catch(e){}
+            }
+            if (state.stompClient) state.stompClient.disconnect(); 
+        };
+
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('loginTitle').innerText = isLoginMode ? '用户登录' : '用户注册';
+            document.getElementById('authBtn').innerText = isLoginMode ? '登录' : '注册';
+            document.querySelector('.toggle-link').innerText = isLoginMode ? '没有账号？去注册' : '已有账号？去登录';
+            document.getElementById('errorMsg').innerText = '';
+        }
+
+        async function handleAuth() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorDiv = document.getElementById('errorMsg');
+            if (!username || !password) { errorDiv.innerText = '请输入用户名和密码'; return; }
+
+            const endpoint = isLoginMode ? '/login' : '/register';
+            try {
+                const res = await fetch(`${API}${endpoint}`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+                const data = await res.json();
+                
+                if (data.code === 200) {
+                    if (isLoginMode) {
+                        const realUserId = String(data.user.id);
+                        if (currentId !== realUserId) {
+                            localStorage.setItem(`myToken_${realUserId}`, data.token);
+                            localStorage.setItem(`currentUser_${realUserId}`, JSON.stringify(data.user));
+                            // 【关键修复】跨账号登录也要保存 loginTime，否则刷新后 myLoginTime=0 会被后端当成旧会话踢掉自己
+                            localStorage.setItem(`loginTime_${realUserId}`, String(data.loginTime || Date.now()));
+                            window.location.hash = realUserId;
+                            location.reload();
+                            return;
+                        }
+                        currentToken = data.token;
+                        state.currentUser = data.user; 
+                        if (!state.currentUser.groups) state.currentUser.groups = [];
+                        localStorage.setItem(TOKEN_KEY, currentToken);
+                        localStorage.setItem(USER_KEY, JSON.stringify(state.currentUser));
+                        
+                        // 【核心修改】保存登录时间戳，用于后续互踢校验（持久化，刷新页面不丢失）
+                        myLoginTime = data.loginTime || Date.now();
+                        localStorage.setItem(LOGINTIME_KEY, String(myLoginTime));
+
+                        showChatInterface();
+                        loadInitialData().then(() => setTimeout(() => switchToLobby(), 500));
+                    } else {
+                        alert('注册成功！请登录');
+                        toggleMode();
+                    }
+                    errorDiv.innerText = '';
+                } else { errorDiv.innerText = data.msg; }
+            } catch (e) { 
+                console.error(e);
+                errorDiv.innerText = '网络错误'; 
+            }
+        }
+
+        function logout() {
+            isManualLogout = true; // 【新增】标记为手动退出
+            if (state.stompClient && state.currentUser) {
+                try { state.stompClient.send("/app/lobby.leave", {}, JSON.stringify({ username: state.currentUser.username })); } catch(e){}
+            }
+            if (currentId) {
+                localStorage.removeItem(`myToken_${currentId}`);
+                localStorage.removeItem(`currentUser_${currentId}`);
+                localStorage.removeItem(`loginTime_${currentId}`);
+            }
+            localStorage.removeItem('myToken_temp');
+            localStorage.removeItem('currentUser_temp');
+            localStorage.removeItem('loginTime_temp');
+            currentToken = null;
+            myLoginTime = 0; // 清空登录时间
+            state = { currentUser: null, activeFriendId: null, activeGroupId: null, stompClient: null, subscribedGroups: new Set(), reconnectTimer: null, isLobbyMode: false, friendsData: [], groupsData: [], onlineFriendIds: new Set(), friendRequests: [] };
+            window.location.hash = '';
+            location.reload();
+        }
+
+        async function fetchWithToken(url, options = {}) {
+            return fetch(url, {...options, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` }});
+        }
+
+        function showChatInterface() {
+            document.getElementById('loginBox').style.display = 'none';
+            document.getElementById('chatBox').style.display = 'flex';
+            document.getElementById('currentUserDisplay').innerText = state.currentUser ? `${state.currentUser.username} (ID:${currentId})` : '用户';
+        }
+
+        async function loadInitialData() {
+            const [fRes, gRes, onlineRes, reqRes] = await Promise.all([
+                fetchWithToken(`${API}/friends`),
+                fetchWithToken(`${API}/my-groups`),
+                fetchWithToken(`${API}/friends/online`),
+                fetchWithToken(`${API}/friend/requests`)
+            ]);
+            const fData = await fRes.json();
+            const gData = await gRes.json();
+            const onlineData = await onlineRes.json();
+            const reqData = await reqRes.json();
+            if (fData.code === 200) { state.friendsData = fData.data || []; renderFriendsList(); }
+            if (gData.code === 200) {
+                state.groupsData = gData.data || [];
+                if (gData.data) state.currentUser.groups = gData.data;
+                renderGroupsList();
+            }
+            if (onlineData.code === 200) {
+                state.onlineFriendIds = new Set((onlineData.data || []).map(String));
+                renderFriendsList();
+            }
+            if (reqData.code === 200) {
+                state.friendRequests = reqData.data || [];
+                renderFriendRequests();
+            }
+        }
+
+        async function loadFriendRequests() {
+            try {
+                const res = await fetchWithToken(`${API}/friend/requests`);
+                const data = await res.json();
+                if (data.code === 200) {
+                    state.friendRequests = data.data || [];
+                    renderFriendRequests();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderFriendRequests() {
+            const list = document.getElementById('friendRequestList');
+            const badge = document.getElementById('reqCount');
+            const reqs = state.friendRequests || [];
+            if (reqs.length === 0) {
+                list.innerHTML = '<div class="empty-tip">暂无申请</div>';
+                badge.style.display = 'none';
+                return;
+            }
+            badge.style.display = 'inline-block';
+            badge.innerText = reqs.length;
+            list.innerHTML = '';
+            reqs.forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'friend-request-item';
+                div.innerHTML = `<span class="req-name">${r.fromName}</span>
+                    <span class="req-actions">
+                        <button class="btn-accept" onclick="handleFriendRequest(${r.id},'accept')">同意</button>
+                        <button class="btn-reject" onclick="handleFriendRequest(${r.id},'reject')">拒绝</button>
+                    </span>`;
+                list.appendChild(div);
+            });
+        }
+
+        async function handleFriendRequest(requestId, action) {
+            try {
+                const res = await fetchWithToken(`${API}/friend/handle`, {
+                    method: 'POST',
+                    body: JSON.stringify({ requestId, action })
+                });
+                const data = await res.json();
+                if (data.code === 200) {
+                    loadInitialData();
+                } else {
+                    alert(data.msg || '操作失败');
+                }
+            } catch (e) { console.error(e); alert('网络错误'); }
+        }
+
+        // ================= 视图切换逻辑 =================
+
+        function clearActiveStates() {
+            document.getElementById('lobbyBtn').classList.remove('active');
+            document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('memberSidebar').style.display = 'none'; 
+        }
+
+        function setChatHeader(title) {
+            document.getElementById('chatHeader').innerText = title;
+        }
+
+        function showInputArea(show) {
+            document.getElementById('inputArea').style.display = show ? 'flex' : 'none';
+            if(show) document.getElementById('msgInput').focus();
+        }
+
+        function clearMessageArea() {
+            document.getElementById('messageArea').innerHTML = '<div class="empty-tip" style="margin-top: 50px;">暂无消息记录</div>';
+        }
+
+        // ================= 公共大厅逻辑 (彻底重构) =================
+        
+        async function switchToLobby() {
+            // 1. 彻底清洗状态
+            clearActiveStates();
+            state.isLobbyMode = true;
+            state.activeFriendId = null;
+            state.activeGroupId = null;
+
+            // 2. 更新 UI
+            document.getElementById('lobbyBtn').classList.add('active');
+            setChatHeader(' 公共大厅');
+            showInputArea(true);
+            clearMessageArea();
+
+            // 3. 强制显示右侧成员栏
+            const sidebar = document.getElementById('memberSidebar');
+            sidebar.style.display = 'flex';
+            document.getElementById('memberHeader').innerText = `在线成员 (${document.getElementById('onlineCount').innerText})`;
+
+            // 4. 建立 WebSocket 连接/订阅
+            if(state.stompClient && state.stompClient.connected) {
+                setupLobbySubscriptions();
+            }
+
+            // 5. 加载大厅历史
+            try {
+                const res = await fetchWithToken(`${API}/messages/lobby`);
+                const data = await res.json();
+                if (data.code === 200 && data.data) {
+                    data.data.forEach(m => {
+                        const isSelf = m.senderId === state.currentUser.id;
+                        appendMessage(isSelf ? `[我] ${m.content}` : `[${m.senderName}] ${m.content}`, isSelf);
+                    });
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function setupLobbySubscriptions() {
+            if (!state.stompClient) return;
+
+            // 发送上线通知 【核心修改】带上 userId 和 loginTime
+            state.stompClient.send("/app/lobby.send", {}, JSON.stringify({ 
+                userId: state.currentUser.id,       // 【关键】后端校验需要 ID
+                loginTime: myLoginTime,             // 【关键】后端校验需要时间戳
+                username: state.currentUser.username, 
+                content: "", 
+                timestamp: Date.now() 
+            }));
+
+            // 【防重复订阅】消息频道
+            if (!lobbySubscriptions.messages) {
+                lobbySubscriptions.messages = state.stompClient.subscribe('/topic/lobby/messages', function(message) {
+                    const msg = JSON.parse(message.body);
+                    if (!msg.content) return;
+                    // 【修复】自己发的消息本地已立即渲染，跳过广播回执，避免重复显示
+                    if (msg.senderName === state.currentUser.username) return;
+                    // 只有在大厅模式才渲染
+                    if (state.isLobbyMode) {
+                        appendMessage(`[${msg.senderName}] ${msg.content}`, false);
+                    }
+                });
+            }
+
+            // 【防重复订阅】用户列表频道
+            if (!lobbySubscriptions.users) {
+                lobbySubscriptions.users = state.stompClient.subscribe('/topic/lobby/users', function(message) {
+                    const users = JSON.parse(message.body);
+                    document.getElementById('onlineCount').innerText = users.length;
+                    document.getElementById('memberHeader').innerText = `在线成员 (${users.length})`;
+                    
+                    // 只有在大厅模式才渲染右侧列表
+                    if (state.isLobbyMode) {
+                        renderMemberList(users);
+                    }
+                });
+            }
+        }
+
+        function renderMemberList(users) {
+            const list = document.getElementById('memberList');
+            list.innerHTML = '';
+            if (!users || users.length === 0) {
+                list.innerHTML = '<div class="empty-tip">暂无在线成员</div>';
+                return;
+            }
+            users.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'member-item';
+                const initial = u.charAt(0).toUpperCase();
+                div.innerHTML = `<div class="member-avatar">${initial}</div><span>${u} ${u === state.currentUser.username ? '(我)' : ''}</span>`;
+                list.appendChild(div);
+            });
+        }
+
+        // ================= 好友/群组列表渲染 =================
+
+        function renderFriendsList() {
+            const list = document.getElementById('friendList');
+            list.innerHTML = '';
+            const friends = state.friendsData || [];
+            if (friends.length === 0) {
+                list.innerHTML = '<div class="empty-tip">暂无好友</div>';
+                return;
+            }
+            friends.forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                if (state.activeFriendId === f.id) div.classList.add('active');
+                const online = state.onlineFriendIds.has(String(f.id));
+                div.innerHTML = `<span class="online-dot ${online ? 'on' : ''}"></span><span>${f.username}</span>`;
+                div.onclick = () => selectFriend(f.id, f.username, div);
+                list.appendChild(div);
+            });
+        }
+
+        function renderGroupsList() {
+            const list = document.getElementById('groupList');
+            list.innerHTML = '';
+            const groups = state.groupsData || [];
+            if (groups.length === 0) {
+                list.innerHTML = '<div class="empty-tip">暂无群组</div>';
+                return;
+            }
+            groups.forEach(g => {
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                const groupName = (typeof g === 'object' && g !== null) ? (g.name || g.groupName || '未知群') : String(g);
+                const groupId = (typeof g === 'object' && g !== null) ? (g.id || g.groupId || groupName) : String(g);
+                
+                if (state.activeGroupId === groupId) div.classList.add('active');
+                div.innerText = '👥 ' + groupName;
+                div.onclick = () => selectGroup(groupId, groupName, div);
+                list.appendChild(div);
+            });
+        }
+
+        async function selectFriend(id, name, element) {
+            clearActiveStates();
+            state.isLobbyMode = false;
+            state.activeFriendId = id;
+            state.activeGroupId = null;
+
+            element.classList.add('active');
+            setChatHeader(`与 ${name} 私聊中`);
+            showInputArea(true);
+            clearMessageArea();
+
+            // 加载私聊历史
+            try {
+                const res = await fetchWithToken(`${API}/messages/private?friendId=${id}`);
+                const data = await res.json();
+                if (data.code === 200 && data.data) {
+                    data.data.forEach(m => {
+                        const isSelf = m.senderId === state.currentUser.id;
+                        appendMessage(isSelf ? m.content : `${name}: ${m.content}`, isSelf);
+                    });
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function selectGroup(groupId, name, element) {
+            clearActiveStates();
+            state.isLobbyMode = false;
+            state.activeGroupId = String(groupId);
+            state.activeFriendId = null;
+
+            element.classList.add('active');
+            setChatHeader(`群聊: ${name}`);
+            showInputArea(true);
+            clearMessageArea();
+
+            subscribeToGroup(String(groupId));
+
+            // 加载群聊历史
+            try {
+                const res = await fetchWithToken(`${API}/messages/group?groupId=${encodeURIComponent(groupId)}`);
+                const data = await res.json();
+                if (data.code === 200 && data.data) {
+                    data.data.forEach(m => {
+                        const isSelf = m.senderId === state.currentUser.id;
+                        appendMessage(isSelf ? `[我] ${m.content}` : `[${m.senderName}] ${m.content}`, isSelf);
+                    });
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function addFriend() {
+            const name = document.getElementById('newFriendName').value.trim();
+            if (!name) return;
+            const res = await fetchWithToken(`${API}/friend/request?toUsername=${encodeURIComponent(name)}`, {method: 'POST'});
+            const data = await res.json();
+            alert(data.msg);
+            if (data.code === 200) {
+                document.getElementById('newFriendName').value = '';
+            }
+        }
+
+        async function joinGroup() {
+            const name = document.getElementById('newGroupName').value.trim();
+            if (!name) return;
+            const res = await fetchWithToken(`${API}/join-group?groupName=${encodeURIComponent(name)}`, {method: 'POST'});
+            const data = await res.json();
+            alert(data.msg);
+            if (data.code === 200) { 
+                document.getElementById('newGroupName').value = ''; 
+                loadInitialData(); 
+            }
+        }
+
+        function appendMessage(content, isSelf) {
+            const area = document.getElementById('messageArea');
+            if (area.querySelector('.empty-tip')) area.innerHTML = '';
+            
+            const div = document.createElement('div');
+            div.className = `msg ${isSelf ? 'self' : 'other'}`;
+            div.innerText = content;
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function connectWebSocket() {
+            if (!currentToken || !state.currentUser) return;
+            const socketUrl = `${WS_URL}?userId=${state.currentUser.id}&loginTime=${myLoginTime}`;
+            const socket = new SockJS(socketUrl);
+            state.stompClient = Stomp.over(socket);
+            state.stompClient.debug = null;
+
+            // 【新增】监听物理断开事件，处理非正常掉线
+            socket.onclose = function() {
+                if (!isManualLogout && document.getElementById('chatBox').style.display !== 'none') {
+                     alert("连接已断开，请重新登录");
+                     logout();
+                }
+            };
+
+            state.stompClient.connect({}, function(frame) {
+                setTimeout(() => {
+                    // 【新增】订阅“被踢”通知 (配合后端 SessionManager 使用)
+                    state.stompClient.subscribe('/user/queue/kickoff', function(message) {
+                        // 【关键修复】比对 loginTime：消息携带的时间戳等于自己当前的，说明是发给新会话的，忽略；
+                        // 不等或无时间戳，说明自己是旧会话，强制下线。
+                        let kickTime = 0;
+                        try { const o = JSON.parse(message.body); kickTime = Number(o.loginTime) || 0; } catch(e) {}
+                        if (kickTime && kickTime === myLoginTime) return;
+                        alert("您的账号已在其他设备登录，您已被强制下线！");
+                        logout();
+                    });
+
+                    // 【新增】订阅好友申请通知
+                    state.stompClient.subscribe('/user/queue/friend-request', function(message) {
+                        try {
+                            const o = JSON.parse(message.body);
+                            loadFriendRequests();
+                            if (o.fromName) alert(`收到来自 ${o.fromName} 的好友申请`);
+                        } catch(e) {}
+                    });
+
+                    // 【新增】订阅好友申请处理结果
+                    state.stompClient.subscribe('/user/queue/friend-result', function(message) {
+                        try {
+                            const o = JSON.parse(message.body);
+                            if (o.action === 'accept') {
+                                alert('您的好友申请已被同意');
+                                loadInitialData();
+                            } else {
+                                alert('您的好友申请被拒绝');
+                            }
+                        } catch(e) {}
+                    });
+
+                    // 【新增】订阅好友上下线状态
+                    state.stompClient.subscribe('/user/queue/presence', function(message) {
+                        try {
+                            const o = JSON.parse(message.body);
+                            if (o.online) state.onlineFriendIds.add(String(o.userId));
+                            else state.onlineFriendIds.delete(String(o.userId));
+                            renderFriendsList();
+                        } catch(e) {}
+                    });
+
+                    // 私聊订阅
+                    state.stompClient.subscribe(`/topic/user/${state.currentUser.id}/reply`, function(message) {
+                        const msg = JSON.parse(message.body);
+                        // 【关键】后端私聊消息只携带 senderId，按发送者匹配当前私聊对象；且不在大厅模式时才显示
+                        if (!state.isLobbyMode && state.activeFriendId && msg.senderId == state.activeFriendId) {
+                            appendMessage(msg.content, false);
+                        }
+                    });
+                    
+                    // 群聊订阅
+                    if (state.currentUser.groups && state.currentUser.groups.length > 0) {
+                        state.currentUser.groups.forEach(g => {
+                            const gid = (typeof g === 'object' && g !== null) ? (g.id || g.groupId || g.name) : String(g);
+                            subscribeToGroup(String(gid), true); 
+                        });
+                    }
+                    
+                    // 如果当前是大厅模式，建立大厅订阅
+                    if (state.isLobbyMode) setupLobbySubscriptions();
+                }, 100);
+            }, function(error) {
+                clearTimeout(state.reconnectTimer);
+                state.reconnectTimer = setTimeout(connectWebSocket, 3000);
+            });
+        }
+
+        function subscribeToGroup(groupId, silent = false) {
+            if (!state.stompClient || !state.stompClient.connected) return;
+            if (state.subscribedGroups.has(groupId)) return;
+            const topic = `/topic/group/${groupId}`;
+            state.stompClient.subscribe(topic, function(message) {
+                try {
+                    const msg = JSON.parse(message.body);
+                    // 【修复】自己发的消息本地已立即渲染，跳过广播回执，避免重复显示
+                    if (msg.senderName === state.currentUser.username) return;
+                    // 【关键】只有不在大厅且在对应群聊时才显示
+                    if (state.activeGroupId === groupId && !state.isLobbyMode) {
+                        appendMessage(`[${msg.senderName}] ${msg.content}`, false);
+                    }
+                } catch (e) { console.error(e); }
+            });
+            state.subscribedGroups.add(groupId);
+        }
+
+        function sendMsg() {
+            const input = document.getElementById('msgInput');
+            const content = input.value.trim();
+            if (!content || !state.stompClient) return;
+
+            if (state.isLobbyMode) {
+                // 【核心修改】大厅消息带上 userId 和 loginTime
+                state.stompClient.send("/app/lobby.send", {}, JSON.stringify({ 
+                    userId: state.currentUser.id,      // 【关键】后端校验需要 ID
+                    loginTime: myLoginTime,            // 【关键】后端校验需要时间戳
+                    username: state.currentUser.username, 
+                    content: content, 
+                    timestamp: Date.now() 
+                }));
+                appendMessage(`[我] ${content}`, true);
+            } else if (state.activeGroupId) {
+                // 【核心修改】群聊消息带上 senderId 和 loginTime
+                state.stompClient.send("/app/chat.group", {}, JSON.stringify({ 
+                    groupId: state.activeGroupId, 
+                    senderId: state.currentUser.id,    // 【关键】后端校验需要 ID
+                    loginTime: myLoginTime,            // 【关键】后端校验需要时间戳
+                    content: content, 
+                    senderName: state.currentUser.username, 
+                    timestamp: Date.now() 
+                }));
+                appendMessage(`[我] ${content}`, true);
+            } else if (state.activeFriendId) {
+                // 【核心修改】私聊消息带上 loginTime
+                state.stompClient.send("/app/chat.private", {}, JSON.stringify({ 
+                    senderId: state.currentUser.id, 
+                    loginTime: myLoginTime,            // 【关键】后端校验需要时间戳
+                    receiverId: state.activeFriendId, 
+                    content: content, 
+                    timestamp: Date.now() 
+                }));
+                appendMessage(content, true);
+            }
+            input.value = ''; input.focus();
+        }
+
+        // 【新增】管理员重置密码功能 (挂载到 window 确保可调用)
+        window.showAdminReset = async function() {
+            const username = prompt("请输入要重置的用户名：");
+            if (!username) return;
+            
+            const newPassword = prompt("请输入新密码：");
+            if (!newPassword) return;
+            
+            const adminKey = prompt("请输入管理员密码："); 
+            
+            try {
+                const res = await fetch(`${API}/admin/reset-password`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username: username,
+                        newPassword: newPassword,
+                        adminKey: adminKey
+                    })
+                });
+                const data = await res.json();
+                alert(data.msg || "操作完成");
+            } catch (e) {
+                console.error(e);
+                alert("请求失败，请检查网络或控制台");
+            }
+        }
+
+        window.handleAuth = handleAuth;
+        window.toggleMode = toggleMode;
+        window.logout = logout;
+        window.addFriend = addFriend;
+        window.joinGroup = joinGroup;
+        window.sendMsg = sendMsg;
+        window.switchToLobby = switchToLobby;
+        window.selectFriend = selectFriend;
+        window.selectGroup = selectGroup;
+        window.handleFriendRequest = handleFriendRequest;
+    })();
+</script>
+</body>
+</html>
