@@ -1,6 +1,7 @@
 package com.webchat.confing;
 
 import com.webchat.service.PresenceService;
+import com.webchat.service.RoomService;
 import com.webchat.service.SessionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
@@ -25,6 +26,8 @@ public class WebSocketEventListener {
     private SessionManager sessionManager;
     @Autowired
     private PresenceService presenceService;
+    @Autowired
+    private RoomService roomService;
 
     @EventListener
     public void handleSessionDisconnect(SessionDisconnectEvent event) {
@@ -49,5 +52,7 @@ public class WebSocketEventListener {
 
         sessionManager.logout(userId);
         presenceService.notifyOffline(userId);
+        // 对战房间清理：最新会话断开时触发弃赛/离开（旧会话不触发，避免误结算）
+        roomService.notifyDisconnect(userId);
     }
 }

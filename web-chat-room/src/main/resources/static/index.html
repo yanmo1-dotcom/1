@@ -94,6 +94,50 @@
         .member-item { padding: 8px 10px; font-size: 13px; color: #555; display: flex; align-items: center; gap: 8px; border-radius: 4px; }
         .member-item:hover { background: #f0f0f0; }
         .member-avatar { width: 24px; height: 24px; background: #ddd; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px; color: #666; }
+
+        /* ===== 对战（井字棋）样式 ===== */
+        .game-entry { margin: 0 15px 5px; padding: 12px; background: white; border: 1px solid #e9ecef; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-weight: 500; color: #333; }
+        .game-entry:hover { background: #e9ecef; }
+        .game-entry.active { background: #6f42c1; color: white; border-color: #6f42c1; }
+        .btn-purple { background: #6f42c1; }
+        .btn-orange { background: #fd7e14; }
+        .room-item { padding: 8px 10px; margin-bottom: 4px; background: #fff; border: 1px solid #e9ecef; border-radius: 6px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .room-item:hover { background: #f0f0ff; }
+        .room-item .room-lock { color: #dc3545; }
+        .game-area { flex: 1; display: none; flex-direction: column; align-items: center; padding: 20px; background: #fafafa; }
+        .game-info { display: flex; gap: 30px; margin-bottom: 15px; align-items: center; }
+        .game-player { text-align: center; padding: 8px 16px; border-radius: 8px; background: white; border: 2px solid #eee; min-width: 100px; }
+        .game-player.turn { border-color: #28a745; box-shadow: 0 0 8px rgba(40,167,69,0.4); }
+        .game-player .pname { font-weight: bold; font-size: 14px; }
+        .game-player .prank { font-size: 12px; color: #888; }
+        .game-player .pmark { font-size: 28px; margin-top: 4px; }
+        .game-status { font-size: 14px; color: #555; margin: 8px 0; }
+        .game-board { display: grid; grid-template-columns: repeat(3, 90px); grid-template-rows: repeat(3, 90px); gap: 6px; background: #ddd; padding: 6px; border-radius: 8px; }
+        .game-cell { background: white; border: none; font-size: 40px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; border-radius: 6px; }
+        .game-cell:disabled { cursor: default; }
+        .game-cell.x { color: #007bff; }
+        .game-cell.o { color: #dc3545; }
+        .game-result { font-size: 18px; font-weight: bold; margin: 12px 0; }
+        .game-result.win { color: #28a745; }
+        .game-result.lose { color: #dc3545; }
+        .game-result.draw { color: #fd7e14; }
+        .history-item { padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; display: flex; justify-content: space-between; }
+        .history-item .tag-win { color: #28a745; font-weight: bold; }
+        .history-item .tag-lose { color: #dc3545; font-weight: bold; }
+        .history-item .tag-draw { color: #fd7e14; font-weight: bold; }
+        .profile-card { background: white; padding: 16px; border-radius: 8px; margin: 10px 0; border: 1px solid #eee; }
+        .profile-stat { display: inline-block; padding: 4px 10px; margin: 3px; background: #f0f2f5; border-radius: 6px; font-size: 13px; }
+        .gt-btn { padding: 5px 10px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; color: #333; }
+        .gt-btn.active { background: #6f42c1; color: #fff; border-color: #6f42c1; }
+        .rps-btn { padding: 10px 18px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; color: #fff; margin: 4px; }
+        .rps-rock { background: #6c757d; }
+        .rps-paper { background: #17a2b8; }
+        .rps-scissors { background: #fd7e14; }
+        .rps-btn:disabled { opacity: 0.5; cursor: default; }
+        .guess-input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 120px; font-size: 16px; }
+        .ready-btn { padding: 10px 30px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 10px; }
+        .ready-btn:disabled { background: #aaa; }
+        .phase-tip { padding: 10px 16px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; margin: 8px 0; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -155,6 +199,28 @@
                     <div class="empty-tip">暂无群组</div>
                 </div>
             </div>
+
+            <!-- ===== 对战入口 ===== -->
+            <div class="action-section">
+                <div class="action-title">⚔️ 对战大厅</div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                    <button id="gttBtn" class="gt-btn active" onclick="selectGameType('TIC_TAC_TOE',this)">井字棋</button>
+                    <button class="gt-btn" onclick="selectGameType('RPS_1V1',this)">RPS单挑</button>
+                    <button class="gt-btn" onclick="selectGameType('RPS_FFA',this)">RPS乱斗</button>
+                    <button class="gt-btn" onclick="selectGameType('GUESS_NUMBER',this)">猜数字</button>
+                </div>
+                <div class="action-input-group">
+                    <input type="text" id="gameRoomPwd" placeholder="房间密码(可选)">
+                    <button class="btn-purple" onclick="createGameRoom()">开房</button>
+                    <button class="btn-orange" onclick="quickMatch()">匹配</button>
+                </div>
+                <button class="btn-purple" onclick="showMyProfile()" style="width:100%;padding:8px;border:none;border-radius:4px;color:#fff;cursor:pointer;margin-bottom:6px;">我的竞技档案</button>
+                <button class="btn-purple" onclick="showMyHistory()" style="width:100%;padding:8px;border:none;border-radius:4px;color:#fff;cursor:pointer;margin-bottom:6px;">我的战绩</button>
+                <button class="btn-purple" onclick="showRulesPanel()" style="width:100%;padding:8px;border:none;border-radius:4px;color:#fff;cursor:pointer;margin-bottom:6px;">积分规则</button>
+                <div class="list-container" id="gameRoomList">
+                    <div class="empty-tip">暂无开放房间</div>
+                </div>
+            </div>
         </div>
 
         <!-- 中间：聊天区 -->
@@ -166,6 +232,37 @@
             <div class="input-area" id="inputArea" style="display: none;">
                 <input type="text" id="msgInput" placeholder="输入消息..." onkeypress="if(event.key==='Enter') sendMsg()">
                 <button onclick="sendMsg()">发送</button>
+            </div>
+
+            <!-- 对战区（通用，按游戏类型渲染） -->
+            <div class="game-area" id="gameArea" style="display:none;">
+                <div id="gameInfo" class="game-info"></div>
+                <div id="gameStatus" class="game-status"></div>
+                <div id="gamePhaseTip" class="phase-tip" style="display:none;"></div>
+                <!-- 准备按钮区 -->
+                <div id="readyArea" style="margin:10px 0;">
+                    <button id="readyBtn" class="ready-btn" onclick="toggleReady()">准备</button>
+                    <span id="readyStatus"></span>
+                </div>
+                <!-- 井字棋棋盘 -->
+                <div class="game-board" id="gameBoard" style="display:none;"></div>
+                <!-- RPS 出拳区 -->
+                <div id="rpsArea" style="display:none;">
+                    <button class="rps-btn rps-rock" onclick="sendRpsMove('ROCK')">✊ 石头</button>
+                    <button class="rps-btn rps-scissors" onclick="sendRpsMove('SCISSORS')">✌ 剪刀</button>
+                    <button class="rps-btn rps-paper" onclick="sendRpsMove('PAPER')">✋ 布</button>
+                    <div id="rpsResult" style="margin-top:12px;font-size:14px;"></div>
+                </div>
+                <!-- 猜数字区 -->
+                <div id="guessArea" style="display:none;">
+                    <input type="number" id="guessInput" class="guess-input" placeholder="1-100" min="1" max="100">
+                    <button class="ready-btn" onclick="sendGuess()" style="margin:4px;">猜</button>
+                    <div id="guessHistory" style="margin-top:12px;font-size:13px;text-align:left;max-width:300px;"></div>
+                </div>
+                <div id="gameResult" class="game-result" style="display:none;"></div>
+                <div style="margin-top:15px; display:flex; gap:10px;">
+                    <button onclick="leaveGameRoom()" style="padding:8px 20px;background:#dc3545;color:#fff;border:none;border-radius:6px;cursor:pointer;">离开/弃赛</button>
+                </div>
             </div>
         </div>
 
@@ -204,8 +301,12 @@
             activeGroupId: null,
             stompClient: null,
             subscribedGroups: new Set(),
+            subscribedGames: new Set(),
+            activeGameRoomId: null,
+            currentGame: null,
             reconnectTimer: null,
             isLobbyMode: false,
+            isGameMode: false,
             friendsData: [],
             groupsData: [],
             onlineFriendIds: new Set(),
@@ -330,7 +431,7 @@
             localStorage.removeItem('loginTime_temp');
             currentToken = null;
             myLoginTime = 0; // 清空登录时间
-            state = { currentUser: null, activeFriendId: null, activeGroupId: null, stompClient: null, subscribedGroups: new Set(), reconnectTimer: null, isLobbyMode: false, friendsData: [], groupsData: [], onlineFriendIds: new Set(), friendRequests: [] };
+            state = { currentUser: null, activeFriendId: null, activeGroupId: null, stompClient: null, subscribedGroups: new Set(), subscribedGames: new Set(), activeGameRoomId: null, currentGame: null, reconnectTimer: null, isLobbyMode: false, isGameMode: false, friendsData: [], groupsData: [], onlineFriendIds: new Set(), friendRequests: [] };
             window.location.hash = '';
             location.reload();
         }
@@ -370,6 +471,7 @@
                 state.friendRequests = reqData.data || [];
                 renderFriendRequests();
             }
+            refreshGameRooms();
         }
 
         async function loadFriendRequests() {
@@ -427,7 +529,18 @@
         function clearActiveStates() {
             document.getElementById('lobbyBtn').classList.remove('active');
             document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
-            document.getElementById('memberSidebar').style.display = 'none'; 
+            document.getElementById('memberSidebar').style.display = 'none';
+            document.getElementById('gameArea').style.display = 'none';
+            document.getElementById('messageArea').style.display = 'flex';
+            // 清除对战入口高亮
+            document.querySelectorAll('.game-entry').forEach(el => el.classList.remove('active'));
+        }
+
+        function showGameView() {
+            document.getElementById('messageArea').style.display = 'none';
+            document.getElementById('inputArea').style.display = 'none';
+            document.getElementById('gameArea').style.display = 'flex';
+            document.getElementById('memberSidebar').style.display = 'flex';
         }
 
         function setChatHeader(title) {
@@ -732,6 +845,35 @@
                             appendMessage(msg.content, false);
                         }
                     });
+
+                    // ===== 对战订阅 =====
+                    // 匹配成功通知
+                    state.stompClient.subscribe('/user/queue/game-matched', function(message) {
+                        try {
+                            const o = JSON.parse(message.body);
+                            alert('匹配成功！进入对局房间：' + o.roomId);
+                            enterGameRoom(o.roomId);
+                            refreshGameRooms();
+                        } catch(e) {}
+                    });
+                    // 对局结算通知
+                    state.stompClient.subscribe('/user/queue/game-finished', function(message) {
+                        try {
+                            const o = JSON.parse(message.body);
+                            let txt = o.result === 'WIN' ? '胜利！' : (o.result === 'DRAW' ? '平局' : '失败');
+                            let delta = o.rankDelta > 0 ? `(+${o.rankDelta})` : `(${o.rankDelta})`;
+                            alert(`对局结束：${txt} ${delta}，当前积分 ${o.rankPoints}`);
+                            // 刷新个人档案与房间列表
+                            refreshGameRooms();
+                        } catch(e) {}
+                    });
+                    // 落子失败回执
+                    state.stompClient.subscribe('/user/queue/game-error', function(message) {
+                        try {
+                            const o = JSON.parse(message.body);
+                            if (state.isGameMode) alert('非法操作：' + (o.msg || '落子失败'));
+                        } catch(e) {}
+                    });
                     
                     // 群聊订阅
                     if (state.currentUser.groups && state.currentUser.groups.length > 0) {
@@ -846,6 +988,475 @@
         window.selectFriend = selectFriend;
         window.selectGroup = selectGroup;
         window.handleFriendRequest = handleFriendRequest;
+
+        // ================= 对战（通用房间 + 多游戏）逻辑 =================
+
+        let selectedGameType = 'TIC_TAC_TOE';
+        let myReady = false;
+
+        const GAME_TYPE_NAMES = {
+            'TIC_TAC_TOE': '井字棋', 'RPS_1V1': 'RPS单挑', 'RPS_FFA': 'RPS乱斗', 'GUESS_NUMBER': '猜数字'
+        };
+
+        function selectGameType(type, btn) {
+            selectedGameType = type;
+            document.querySelectorAll('.gt-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+        window.selectGameType = selectGameType;
+
+        async function refreshGameRooms() {
+            try {
+                const res = await fetchWithToken(`${API}/game/rooms`);
+                const data = await res.json();
+                const list = document.getElementById('gameRoomList');
+                if (data.code !== 200 || !data.data || data.data.length === 0) {
+                    list.innerHTML = '<div class="empty-tip">暂无开放房间</div>';
+                    return;
+                }
+                list.innerHTML = '';
+                data.data.forEach(r => {
+                    const gname = GAME_TYPE_NAMES[r.gameType] || r.gameType;
+                    const div = document.createElement('div');
+                    div.className = 'room-item';
+                    div.innerHTML = `<span>${r.locked ? '🔒' : '🔓'} [${gname}] ${r.hostName} (${r.seated}/${r.capacity}) ${r.readyCount}已准备</span>
+                        <button onclick="joinGameRoom('${r.roomId}')" style="padding:4px 10px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;">加入</button>`;
+                    list.appendChild(div);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function createGameRoom() {
+            const pwd = document.getElementById('gameRoomPwd').value.trim() || null;
+            try {
+                const res = await fetchWithToken(`${API}/game/rooms`, {
+                    method: 'POST', body: JSON.stringify({ password: pwd, gameType: selectedGameType })
+                });
+                const data = await res.json();
+                if (data.code === 200) {
+                    enterGameRoom(data.data.roomId);
+                    refreshGameRooms();
+                } else { alert(data.msg || '创建失败'); }
+            } catch (e) { alert('网络错误'); }
+        }
+
+        async function joinGameRoom(roomId) {
+            const pwd = prompt('房间密码（无则留空）：') || null;
+            try {
+                const res = await fetchWithToken(`${API}/game/rooms/${roomId}/join`, {
+                    method: 'POST', body: JSON.stringify({ password: pwd })
+                });
+                const data = await res.json();
+                if (data.code === 200) {
+                    enterGameRoom(roomId);
+                    refreshGameRooms();
+                } else { alert(data.msg || '加入失败'); }
+            } catch (e) { alert('网络错误'); }
+        }
+
+        async function quickMatch() {
+            try {
+                const res = await fetchWithToken(`${API}/game/match`, {
+                    method: 'POST', body: JSON.stringify({ gameType: selectedGameType })
+                });
+                const data = await res.json();
+                if (data.code === 200) {
+                    alert('匹配成功！');
+                    enterGameRoom(data.data.roomId);
+                    refreshGameRooms();
+                } else if (data.code === 202) {
+                    alert('已进入匹配队列，等待对手加入...');
+                } else { alert(data.msg || '匹配失败'); }
+            } catch (e) { alert('网络错误'); }
+        }
+
+        async function leaveGameRoom() {
+            if (!state.activeGameRoomId) return;
+            try {
+                await fetchWithToken(`${API}/game/rooms/${state.activeGameRoomId}/leave`, { method: 'POST' });
+            } catch (e) {}
+            state.activeGameRoomId = null;
+            state.currentGame = null;
+            state.isGameMode = false;
+            state.subscribedGames = new Set();
+            myReady = false;
+            switchToLobby();
+            refreshGameRooms();
+        }
+
+        async function toggleReady() {
+            if (!state.activeGameRoomId) return;
+            const next = !myReady;
+            try {
+                const res = await fetchWithToken(`${API}/game/rooms/${state.activeGameRoomId}/ready`, {
+                    method: 'POST', body: JSON.stringify({ ready: next })
+                });
+                const data = await res.json();
+                if (data.code === 200) myReady = next;
+                else alert(data.msg || '操作失败');
+            } catch (e) { alert('网络错误'); }
+        }
+        window.toggleReady = toggleReady;
+
+        // 进入房间：订阅房间主题 + 渲染
+        async function enterGameRoom(roomId) {
+            clearActiveStates();
+            state.activeGameRoomId = roomId;
+            state.isGameMode = true;
+            state.isLobbyMode = false;
+            state.activeFriendId = null;
+            state.activeGroupId = null;
+            myReady = false;
+            showGameView();
+            setChatHeader(`⚔️ 对战房间 ${roomId}`);
+            document.getElementById('memberSidebar').style.display = 'flex';
+            document.getElementById('memberHeader').innerText = '房间内成员';
+
+            subscribeToGame(roomId);
+
+            try {
+                const res = await fetchWithToken(`${API}/game/rooms/${roomId}`);
+                const data = await res.json();
+                if (data.code === 200 && data.data) {
+                    state.currentGame = data.data;
+                    myReady = (data.data.readyPlayers || []).includes(state.currentUser.id);
+                    renderGameState();
+                    // 拉取房间成员
+                    const r2 = await fetchWithToken(`${API}/game/rooms/${roomId}`);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function subscribeToGame(roomId) {
+            if (!state.stompClient || !state.stompClient.connected) return;
+            if (state.subscribedGames.has(roomId)) return;
+
+            // 房间状态/动作广播
+            state.stompClient.subscribe(`/topic/game/${roomId}/state`, function(message) {
+                try {
+                    const o = JSON.parse(message.body);
+                    if (state.isGameMode && state.activeGameRoomId === roomId) {
+                        // 合并到 currentGame
+                        state.currentGame = Object.assign({}, state.currentGame || {}, o);
+                        renderGameState(o);
+                    }
+                } catch(e) {}
+            });
+            // 成员变动
+            state.stompClient.subscribe(`/topic/game/${roomId}/roster`, function(message) {
+                try {
+                    const o = JSON.parse(message.body);
+                    if (state.isGameMode && state.activeGameRoomId === roomId) renderGameMembers(o);
+                } catch(e) {}
+            });
+            // 准备状态
+            state.stompClient.subscribe(`/topic/game/${roomId}/ready`, function(message) {
+                try {
+                    const o = JSON.parse(message.body);
+                    if (state.isGameMode && state.activeGameRoomId === roomId) {
+                        if (state.currentGame) {
+                            state.currentGame.readyPlayers = o.readyPlayers || [];
+                            state.currentGame.state = o.state || state.currentGame.state;
+                        }
+                        renderReady(o);
+                    }
+                } catch(e) {}
+            });
+            // 对局结束
+            state.stompClient.subscribe(`/topic/game/${roomId}/finished`, function(message) {
+                try {
+                    const o = JSON.parse(message.body);
+                    if (state.isGameMode && state.activeGameRoomId === roomId) renderGameResult(o);
+                } catch(e) {}
+            });
+            state.subscribedGames.add(roomId);
+        }
+
+        // 根据游戏类型与房间状态渲染整个对战区
+        function renderGameState(stateMsg) {
+            const g = state.currentGame;
+            if (!g) return;
+            const me = state.currentUser.id;
+            const gt = g.gameType || 'TIC_TAC_TOE';
+            const gname = GAME_TYPE_NAMES[gt] || gt;
+            const status = document.getElementById('gameStatus');
+            const phaseTip = document.getElementById('gamePhaseTip');
+
+            // 隐藏所有操作区
+            document.getElementById('gameBoard').style.display = 'none';
+            document.getElementById('rpsArea').style.display = 'none';
+            document.getElementById('guessArea').style.display = 'none';
+            document.getElementById('gameResult').style.display = 'none';
+
+            // 状态文案
+            if (g.state === 'WAITING') status.innerText = `等待大厅：${g.players.length}/${g.capacity} 人，请准备`;
+            else if (g.state === 'READY') {
+                const left = Math.max(0, Math.ceil((g.countdownEndsAt - Date.now())/1000));
+                status.innerText = `全员就绪，${left}s 后开始...`;
+            } else if (g.state === 'PLAYING') status.innerText = '对局进行中';
+            else status.innerText = '对局已结束';
+
+            // 阶段提示
+            if (stateMsg && stateMsg.message) {
+                phaseTip.innerText = stateMsg.message;
+                phaseTip.style.display = 'block';
+            } else {
+                phaseTip.style.display = 'none';
+            }
+
+            // 准备按钮区：仅 WAITING 显示
+            renderReady({readyPlayers: g.readyPlayers || [], allReady: g.allReady, state: g.state});
+
+            // 按游戏类型渲染操作区（仅 PLAYING）
+            if (g.state === 'PLAYING') {
+                if (gt === 'TIC_TAC_TOE') renderTicTacToe(g, me);
+                else if (gt === 'RPS_1V1' || gt === 'RPS_FFA') renderRps(g, me, stateMsg);
+                else if (gt === 'GUESS_NUMBER') renderGuess(g, me, stateMsg);
+            }
+        }
+
+        function renderReady(rdy) {
+            const readyArea = document.getElementById('readyArea');
+            const readyBtn = document.getElementById('readyBtn');
+            const readyStatus = document.getElementById('readyStatus');
+            const g = state.currentGame || {};
+            if (g.state !== 'WAITING') {
+                readyArea.style.display = 'none';
+                return;
+            }
+            readyArea.style.display = 'block';
+            const count = (rdy.readyPlayers || []).length;
+            const total = (g.players || []).length;
+            readyBtn.innerText = myReady ? '取消准备' : '准备';
+            readyBtn.disabled = (rdy.allReady === true);
+            readyStatus.innerText = ` ${count}/${total} 已准备`;
+        }
+
+        function renderTicTacToe(g, me) {
+            const board = document.getElementById('gameBoard');
+            board.style.display = 'grid';
+            const players = g.players || [];
+            const mySeat = players.indexOf(me);
+            const myMark = mySeat === 0 ? 'X' : (mySeat === 1 ? 'O' : '');
+            document.getElementById('gameInfo').innerHTML = `<div class="game-player ${g.currentTurnPlayerId == me ? 'turn' : ''}">
+                <div class="pname">我</div><div class="prank">${myMark || '-'}</div></div>
+                <div class="game-player ${g.currentTurnPlayerId != me ? 'turn' : ''}">
+                <div class="pname">对手</div><div class="prank">${myMark === 'X' ? 'O' : 'X'}</div></div>`;
+            document.getElementById('gameStatus').innerText = g.currentTurnPlayerId == me ? '轮到你落子' : '对手思考中...';
+            const b = g.board || [[0,0,0],[0,0,0],[0,0,0]];
+            board.innerHTML = '';
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const cell = document.createElement('button');
+                    cell.className = 'game-cell';
+                    const v = b[r][c];
+                    if (v === 1) { cell.innerText = 'X'; cell.classList.add('x'); cell.disabled = true; }
+                    else if (v === 2) { cell.innerText = 'O'; cell.classList.add('o'); cell.disabled = true; }
+                    else {
+                        if (g.state === 'PLAYING' && g.currentTurnPlayerId == me) cell.onclick = () => sendGameAction('TICTACTOE_MOVE', [r, c]);
+                        else cell.disabled = true;
+                    }
+                    board.appendChild(cell);
+                }
+            }
+        }
+
+        function renderRps(g, me, stateMsg) {
+            document.getElementById('rpsArea').style.display = 'block';
+            const players = g.players || [];
+            const mySeat = players.indexOf(me);
+            const isFfa = g.gameType === 'RPS_FFA';
+            let infoHtml = '';
+            if (isFfa) {
+                infoHtml = `<div class="game-player ${g.currentTurnPlayerId == me ? 'turn' : ''}">
+                    <div class="pname">擂主</div><div class="prank">${g.champion || '-'}</div></div>
+                    <div class="game-player ${g.currentTurnPlayerId != me ? 'turn' : ''}">
+                    <div class="pname">挑战者</div><div class="prank">${g.challenger || '-'}</div></div>
+                    <div style="font-size:12px;color:#888;">第${g.round || 1}轮</div>`;
+            } else {
+                infoHtml = `<div class="game-player"><div class="pname">我</div></div>
+                    <div class="game-player"><div class="pname">对手</div></div>`;
+            }
+            document.getElementById('gameInfo').innerHTML = infoHtml;
+            const rpsResult = document.getElementById('rpsResult');
+            // 显示裁决结果（双方出拳）
+            if (stateMsg && stateMsg.moves) {
+                const moves = stateMsg.moves;
+                let txt = '';
+                Object.keys(moves).forEach(k => {
+                    const name = (k == me) ? '我' : '对手';
+                    txt += `${name}: ${moveName(moves[k])}  `;
+                });
+                if (stateMsg.message) txt += `\n${stateMsg.message}`;
+                rpsResult.innerText = txt;
+            }
+            // 出拳按钮在 PLAYING 阶段可用
+            const disabled = g.state !== 'PLAYING';
+            document.querySelectorAll('#rpsArea .rps-btn').forEach(b => b.disabled = disabled);
+        }
+
+        function moveName(m) {
+            return m === 'ROCK' ? '✊石头' : (m === 'PAPER' ? '✋布' : (m === 'SCISSORS' ? '✌剪刀' : m));
+        }
+
+        function renderGuess(g, me, stateMsg) {
+            document.getElementById('guessArea').style.display = 'block';
+            const players = g.players || [];
+            document.getElementById('gameInfo').innerHTML = `<div class="game-player ${g.currentTurnPlayerId == me ? 'turn' : ''}">
+                <div class="pname">我</div></div>
+                <div class="game-player ${g.currentTurnPlayerId != me ? 'turn' : ''}">
+                <div class="pname">对手</div></div>`;
+            document.getElementById('gameStatus').innerText = g.currentTurnPlayerId == me ? '轮到你猜（1-100）' : '对手思考中...';
+            // 历史
+            const histDiv = document.getElementById('guessHistory');
+            const hist = g.guessHistory || [];
+            if (hist.length === 0) { histDiv.innerHTML = '<i>尚无猜测</i>'; }
+            else {
+                histDiv.innerHTML = hist.map(h => {
+                    const who = h.playerId == me ? '我' : '对手';
+                    return `<div>${who} 猜 ${h.guess} → ${h.hint}</div>`;
+                }).join('');
+            }
+        }
+
+        function renderGameResult(o) {
+            const resultDiv = document.getElementById('gameResult');
+            const me = state.currentUser.id;
+            let cls, txt;
+            if (o.draw) { cls = 'draw'; txt = '平局！'; }
+            else if (o.winnerId == me) { cls = 'win'; txt = '胜利！'; }
+            else { cls = 'lose'; txt = '失败...'; }
+            resultDiv.className = 'game-result ' + cls;
+            let detail = '';
+            if (o.target) detail += `\n答案是 ${o.target}`;
+            if (o.moves) {
+                Object.keys(o.moves).forEach(k => {
+                    detail += `\n玩家${k}: ${moveName(o.moves[k])}`;
+                });
+            }
+            resultDiv.innerText = txt + detail;
+            resultDiv.style.display = 'block';
+            document.getElementById('gameStatus').innerText = '对局结束';
+            document.querySelectorAll('.game-cell, .rps-btn, .guess-input').forEach(c => { if (c.disabled !== undefined) c.disabled = true; });
+            document.getElementById('readyArea').style.display = 'none';
+            // 重置本地对战状态，避免卡在已结算的房间视图里无法开始新对局
+            const finishedRoomId = state.activeGameRoomId;
+            state.activeGameRoomId = null;
+            state.currentGame = null;
+            state.isGameMode = false;
+            myReady = false;
+            // 清空已订阅房间集合，下次进新房间才能重新订阅 /topic/game/{id}/*
+            state.subscribedGames = new Set();
+            // 几秒后刷新房间列表（若回大厅）
+            setTimeout(() => {
+                refreshGameRooms();
+                // 自动返回大厅视图
+                if (!state.isGameMode) switchToLobby();
+            }, 3000);
+        }
+
+        function renderGameMembers(roster) {
+            const list = document.getElementById('memberList');
+            list.innerHTML = '';
+            (roster.players || []).forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'member-item';
+                const rdy = p.ready ? '✓' : '○';
+                div.innerHTML = `<div class="member-avatar">P</div><span>${p.name} (${p.rankPoints}分) ${rdy}</span>`;
+                list.appendChild(div);
+            });
+            (roster.spectators || []).forEach(sid => {
+                const div = document.createElement('div');
+                div.className = 'member-item';
+                div.innerHTML = `<div class="member-avatar">观</div><span>ID:${sid}</span>`;
+                list.appendChild(div);
+            });
+        }
+
+        // 通用动作发送
+        function sendGameAction(actionType, payload) {
+            if (!state.stompClient || !state.activeGameRoomId) return;
+            state.stompClient.send("/app/game.action", {}, JSON.stringify({
+                roomId: state.activeGameRoomId,
+                actionType: actionType,
+                payload: payload,
+                loginTime: myLoginTime
+            }));
+        }
+
+        function sendRpsMove(move) {
+            sendGameAction('RPS_MOVE', move);
+        }
+        function sendGuess() {
+            const v = document.getElementById('guessInput').value.trim();
+            if (!v) return;
+            sendGameAction('GUESS', parseInt(v));
+            document.getElementById('guessInput').value = '';
+        }
+        window.sendRpsMove = sendRpsMove;
+        window.sendGuess = sendGuess;
+
+        async function showMyProfile() {
+            try {
+                const res = await fetchWithToken(`${API}/game/profile`);
+                const data = await res.json();
+                if (data.code !== 200) { alert(data.msg || '查询失败'); return; }
+                const p = data.data;
+                alert(`【${p.nickname}】\n积分: ${p.rankPoints}\n胜: ${p.wins}  负: ${p.losses}  平: ${p.draws}\n胜率: ${p.winRate}%\n连胜: ${p.currentStreak}\n状态: ${p.status}${p.inGameState === 'IN_GAME' ? '(游戏中)' : ''}`);
+            } catch (e) { alert('网络错误'); }
+        }
+
+        async function showMyHistory() {
+            try {
+                const res = await fetchWithToken(`${API}/game/history?limit=20`);
+                const data = await res.json();
+                if (data.code !== 200) { alert(data.msg || '查询失败'); return; }
+                const list = data.data || [];
+                if (list.length === 0) { alert('暂无战绩'); return; }
+                let txt = '=== 最近战绩 ===\n';
+                list.forEach(m => {
+                    const tag = m.result === 'WIN' ? '【胜】' : (m.result === 'DRAW' ? '【平】' : '【负】');
+                    const delta = m.rankDelta > 0 ? `+${m.rankDelta}` : m.rankDelta;
+                    const time = new Date(m.finishedAt).toLocaleString();
+                    const gname = GAME_TYPE_NAMES[m.gameType] || m.gameType || '';
+                    txt += `${tag}[${gname}] vs ${m.opponentName}  ${delta}分  ${time}\n`;
+                });
+                alert(txt);
+            } catch (e) { alert('网络错误'); }
+        }
+
+        async function showRulesPanel() {
+            try {
+                const res = await fetchWithToken(`${API}/game/rules`);
+                const data = await res.json();
+                if (data.code !== 200) { alert(data.msg); return; }
+                const r = data.data;
+                const modify = confirm(`当前积分规则：\n胜 +${r.winPoints}  负 ${r.lossPoints}  平 +${r.drawPoints}\n分差阈值 ${r.diffThreshold}  爆冷加成 ±${r.upsetBonus}\n保底 ${r.minPoints}  初始 ${r.initialPoints}\n\n点击确定修改规则（需管理员密码），取消则关闭。`);
+                if (!modify) return;
+                const adminKey = prompt('管理员密码：');
+                if (!adminKey) return;
+                const winPoints = prompt('胜场加分', r.winPoints);
+                const lossPoints = prompt('负场扣分（负数）', r.lossPoints);
+                const drawPoints = prompt('平局加分', r.drawPoints);
+                const diffThreshold = prompt('动态调整分差阈值', r.diffThreshold);
+                const upsetBonus = prompt('爆冷额外加成', r.upsetBonus);
+                const body = { adminKey, winPoints: +winPoints, lossPoints: +lossPoints, drawPoints: +drawPoints,
+                               diffThreshold: +diffThreshold, upsetBonus: +upsetBonus };
+                const res2 = await fetchWithToken(`${API}/game/rules`, {
+                    method: 'POST', body: JSON.stringify(body)
+                });
+                const data2 = await res2.json();
+                alert(data2.msg || '已更新');
+            } catch (e) { alert('网络错误'); }
+        }
+
+        window.createGameRoom = createGameRoom;
+        window.joinGameRoom = joinGameRoom;
+        window.quickMatch = quickMatch;
+        window.leaveGameRoom = leaveGameRoom;
+        window.showMyProfile = showMyProfile;
+        window.showMyHistory = showMyHistory;
+        window.showRulesPanel = showRulesPanel;
     })();
 </script>
 </body>

@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.webchat.model.FriendRequest;
+import com.webchat.model.RankRule;
 import com.webchat.model.User;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +38,9 @@ public class UserService {
     private List<User> users = new ArrayList<>();
     private List<FriendRequest> friendRequests = new ArrayList<>();
     private long nextRequestId = 1;
+
+    @Autowired
+    private RankRuleService rankRuleService;
 
     public String getDataDir() { return dataDir; }
 
@@ -86,24 +91,35 @@ public class UserService {
 
     // --- 用户基础方法 ---
     public boolean register(User newUser) {
-        for (User u : users) 
+        for (User u : users)
             if (u.getUsername().equals(newUser.getUsername())) return false;
-        
+
         long maxId = users.stream()
             .mapToLong(u -> u.getId() == null ? 0 : u.getId())
             .max().orElse(0);
-            
+
         newUser.setId(maxId + 1);
         newUser.setFriends(new ArrayList<>());
         newUser.setGroups(new ArrayList<>());
+        long now = System.currentTimeMillis();
+        newUser.setRegisteredAt(now);
+        newUser.setLastLoginAt(now);
+        newUser.setRankPoints(rankRuleService.getRules().getInitialPoints());
+        if (newUser.getNickname() == null || newUser.getNickname().isEmpty()) {
+            newUser.setNickname(newUser.getUsername());
+        }
         users.add(newUser);
         saveToFile();
         return true;
     }
 
     public User login(String username, String password) {
-        for (User u : users) 
-            if (u.getUsername().equals(username) && u.getPassword().equals(password)) return u;
+        for (User u : users)
+            if (u.getUsername().equals(username) && u.getPassword().equals(password)) {
+                u.setLastLoginAt(System.currentTimeMillis());
+                saveToFile();
+                return u;
+            }
         return null;
     }
 
@@ -187,8 +203,8 @@ public class UserService {
         return user != null && user.getGroups() != null ? user.getGroups() : new ArrayList<>();
     }
 
-    // 【关键修改 3】保存数据并自动备份
-    private void saveToFile() {
+    // 【关键修改 3】保存数据并自动备份（同步化，防止并发竞态）
+    public synchronized void saveToFile() {
         try {
             Path filePath = Paths.get(dataDir + FILE_NAME);
             String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(users);
@@ -200,6 +216,55 @@ public class UserService {
             System.err.println("❌ 保存数据失败: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 对局结束后更新双方竞技数据（积分/胜负/连胜）并持久化。
+     * 由 RoomService 调用，保证与 saveToFile 互斥。
+     * @param winnerId 胜者，null 表示平局
+     * @param loserId  败者，平局时此参数为另一方
+     * @param isDraw   是否平局
+     * @param deltaA   playerA(传入方1) 积分变动
+     * @param deltaB   playerB(传入方2) 积分变动
+     */
+    public synchronized void updateMatchStats(Long playerA, Long playerB, boolean isDraw,
+                                               int deltaA, int deltaB) {
+        User a = findById(playerA);
+        User b = findById(playerB);
+        RankRule rule = rankRuleService.getRules();
+        if (a != null) {
+            int np = Math.max(rule.getMinPoints(), a.getRankPoints() + deltaA);
+            a.setRankPoints(np);
+            if (isDraw) { a.setDraws(a.getDraws() + 1); a.setCurrentStreak(0); }
+            else if (deltaA > 0) { a.setWins(a.getWins() + 1); a.setCurrentStreak(a.getCurrentStreak() >= 0 ? a.getCurrentStreak() + 1 : 1); }
+            else { a.setLosses(a.getLosses() + 1); a.setCurrentStreak(a.getCurrentStreak() <= 0 ? a.getCurrentStreak() - 1 : -1); }
+        }
+        if (b != null) {
+            int np = Math.max(rule.getMinPoints(), b.getRankPoints() + deltaB);
+            b.setRankPoints(np);
+            if (isDraw) { b.setDraws(b.getDraws() + 1); b.setCurrentStreak(0); }
+            else if (deltaB > 0) { b.setWins(b.getWins() + 1); b.setCurrentStreak(b.getCurrentStreak() >= 0 ? b.getCurrentStreak() + 1 : 1); }
+            else { b.setLosses(b.getLosses() + 1); b.setCurrentStreak(b.getCurrentStreak() <= 0 ? b.getCurrentStreak() - 1 : -1); }
+        }
+        saveToFile();
+    }
+
+    /** 设置用户状态：ACTIVE / MUTED / BANNED（管理员封禁/禁言） */
+    public synchronized boolean setStatus(Long uid, String status) {
+        User u = findById(uid);
+        if (u == null) return false;
+        u.setStatus(status);
+        saveToFile();
+        return true;
+    }
+
+    /** 按用户名设置状态 */
+    public synchronized boolean setStatusByUsername(String username, String status) {
+        User u = findByUsername(username);
+        if (u == null) return false;
+        u.setStatus(status);
+        saveToFile();
+        return true;
     }
 
     // 备份辅助方法
