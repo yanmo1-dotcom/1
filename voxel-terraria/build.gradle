@@ -1,0 +1,57 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.yourname'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    lwjglVersion = '3.3.4'
+}
+
+dependencies {
+    // LWJGL BOM 统一管理版本
+    implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
+
+    implementation 'org.lwjgl:lwjgl'
+    implementation 'org.lwjgl:lwjgl-glfw'
+    implementation 'org.lwjgl:lwjgl-opengl'
+
+    // 全平台 natives（:: 表示版本由 BOM 提供，随后是 classifier）
+    runtimeOnly 'org.lwjgl:lwjgl::natives-windows'
+    runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-windows'
+    runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-windows'
+
+    runtimeOnly 'org.lwjgl:lwjgl::natives-linux'
+    runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-linux'
+    runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-linux'
+
+    runtimeOnly 'org.lwjgl:lwjgl::natives-macos'
+    runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-macos'
+    runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-macos'
+
+    runtimeOnly 'org.lwjgl:lwjgl::natives-macos-arm64'
+    runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-macos-arm64'
+    runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-macos-arm64'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+application {
+    mainClass = 'com.yourname.voxelgame.Main'
+
+    // macOS 上 GLFW/OpenGL 必须在主线程运行
+    def osName = System.getProperty('os.name').toLowerCase()
+    if (osName.contains('mac')) {
+        applicationDefaultJvmArgs = ['-XstartOnFirstThread']
+    }
+}
