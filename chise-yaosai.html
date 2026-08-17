@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奇斯要塞 Chise Yaosai · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.play-link{display:inline-block;margin:18px 0;padding:12px 28px;border-radius:10px;background:var(--green);color:#0f1220;font-weight:700;font-size:1.05rem;text-decoration:none}.play-link:hover{filter:brightness(1.1);text-decoration:none}</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<a class="play-link" href="chise-play.html">▶ 点击直接玩网页版</a>
+<h1>奇斯要塞 Chise Yaosai</h1>
+<p class="subtitle">Jackal 同类的回合制策略射击游戏</p>
+<div class="meta">
+<span>类型：桌面游戏</span><span>技术：Java · libGDX · Gradle</span><span>模块：core / desktop</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一款基于 libGDX 的策略射击游戏，玩法灵感来自经典桌游《Jackal》（豺狼岛）。在关卡地图上推进，应对不同类型的敌人和武器，含关卡推进和计分。</p>
+
+<h2>主要类与功能</h2>
+<ul>
+<li><strong>JackalGame</strong>：游戏主类</li>
+<li><strong>GameWorld / MapCollider / TileMapAssets</strong>：世界、地图碰撞、贴图资源</li>
+<li><strong>LevelManager / ScoreSystem</strong>：关卡推进与计分</li>
+<li><strong>Enemy / Infantry / Jeep / Tank / Turret</strong>：敌人类型——步兵、吉普、坦克、炮塔</li>
+<li><strong>BossArmoredVehicle / POWCamp</strong>：Boss 装甲车与战俘营</li>
+<li><strong>WeaponSystem / Bullet / BulletPool / LaserBeam</strong>：武器、子弹池、激光</li>
+<li><strong>GrenadeState / RocketState / MachineGunState</strong>：手榴弹、火箭筒、机枪状态</li>
+<li><strong>AudioManager</strong>：音频</li>
+</ul>
+
+<h2>运行方式</h2>
+<p>Gradle 项目，桌面启动器 <code>com.jackal.desktop.DesktopLauncher</code>。</p>
+<div class="run"><code>gradlew desktop:run</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>chise-yaosai/</code> 目录。</p>
+</div>
+</body>
+</html>

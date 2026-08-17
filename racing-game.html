@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飞机射击 Racing Game · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.play-link{display:inline-block;margin:18px 0;padding:12px 28px;border-radius:10px;background:var(--green);color:#0f1220;font-weight:700;font-size:1.05rem;text-decoration:none}.play-link:hover{filter:brightness(1.1);text-decoration:none}</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<a class="play-link" href="racing-game-play.html">▶ 点击直接玩网页版</a>
+<h1>飞机射击 Racing Game</h1>
+<p class="subtitle">Java 编写的飞机射击类游戏</p>
+<div class="meta">
+<span>类型：桌面游戏</span><span>技术：Java · Swing · 音效</span><span>构建：手动编译 / out</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一款纵向卷轴飞机射击游戏。玩家驾驶战机消灭敌机，有道具、Boss、波次系统和高分记录。文件按职责拆分成多个类。</p>
+
+<h2>主要类与功能</h2>
+<ul>
+<li><strong>GameMain / GamePanel</strong>：程序入口与游戏主画面渲染循环</li>
+<li><strong>PlayerPlane / EnemyPlane</strong>：玩家与敌机</li>
+<li><strong>EnemyManager / WaveManager</strong>：敌机生成与波次管理</li>
+<li><strong>Boss</strong>：Boss 战</li>
+<li><strong>Bullet / Explosion / Particle / FloatingText</strong>：子弹、爆炸、粒子、飘字</li>
+<li><strong>PowerUp / PowerUpType</strong>：道具系统</li>
+<li><strong>Difficulty / EnemyType</strong>：难度与敌机类型</li>
+<li><strong>HighScoreManager</strong>：高分记录</li>
+<li><strong>SoundManager</strong>：音效</li>
+</ul>
+
+<h2>运行方式</h2>
+<p>主类 <code>GameMain</code>，在 <code>racing-game/</code> 目录编译运行：</p>
+<div class="run"><code>javac -encoding UTF-8 -d out src/*.java<br>java -cp out GameMain</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>racing-game/</code> 目录。</p>
+</div>
+</body>
+</html>

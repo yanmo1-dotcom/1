@@ -1,0 +1,25 @@
+# 构建产物
+target/
+build/
+out/
+bin/
+.gradle/
+node_modules/
+*.class
+
+# 日志和崩溃转储
+*.log
+hs_err_pid*.log
+logs/
+
+# IDE 与系统文件
+.idea/
+*.iml
+.vscode/
+.claude/
+.DS_Store
+Thumbs.db
+
+# 本地运行时数据
+.runtime-data/
+*.json.bak

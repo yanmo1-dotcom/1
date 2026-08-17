@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>卡牌游戏 Kapai · 点击即玩</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .play-wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
+    .board {
+        background: linear-gradient(180deg, #1a1f3a, #0f1220);
+        border: 1px solid var(--border); border-radius: 14px;
+        padding: 18px; min-height: 560px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .topbar { display:flex; justify-content:space-between; align-items:center; color:var(--text-dim); font-size:.88rem; }
+    .topbar .turn { color:var(--accent); font-weight:700; }
+    .enemies { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; min-height:140px; }
+    .enemy {
+        background: var(--card); border:2px solid var(--border); border-radius:12px;
+        padding:12px 16px; min-width:130px; text-align:center; position:relative;
+        cursor:default; transition:border-color .15s, transform .15s;
+    }
+    .enemy.targetable { cursor:pointer; border-color: var(--accent); }
+    .enemy.targetable:hover { transform: translateY(-4px); border-color:#fff; }
+    .enemy.selected { border-color:#f1c40f; box-shadow:0 0 16px rgba(241,196,15,.4); }
+    .enemy .name { font-weight:700; margin-bottom:6px; }
+    .enemy .hp { color:#e74c3c; font-size:.9rem; }
+    .enemy .block { color:var(--accent); font-size:.85rem; }
+    .enemy .intent {
+        margin-top:8px; padding:4px 10px; border-radius:6px; font-size:.82rem; font-weight:600;
+        display:inline-block;
+    }
+    .intent-attack { background:rgba(231,76,60,.2); color:#e74c3c; }
+    .intent-defend { background:rgba(78,186,180,.2); color:#4ebab4; }
+    .intent-buff { background:rgba(241,196,15,.2); color:#f1c40f; }
+    .enemy .statuses { margin-top:6px; font-size:.72rem; display:flex; gap:4px; justify-content:center; flex-wrap:wrap; }
+    .status-chip { padding:1px 6px; border-radius:8px; background:var(--bg-soft); }
+    .status-chip.buff { color:#2ecc71; }
+    .status-chip.debuff { color:#e67e22; }
+    .dead { opacity:.4; filter:grayscale(1); }
+    .mid { flex:1; display:flex; gap:14px; align-items:flex-start; }
+    .player-panel {
+        background: var(--card); border:1px solid var(--border); border-radius:12px;
+        padding:14px; width:200px;
+    }
+    .player-panel .pname { font-weight:700; margin-bottom:8px; }
+    .player-panel .hp-bar { height:14px; background:#2a1428; border-radius:7px; overflow:hidden; margin:4px 0; }
+    .player-panel .hp-fill { height:100%; background:linear-gradient(90deg,#c0392b,#e74c3c); transition:width .3s; }
+    .player-panel .stat { font-size:.85rem; color:var(--text-dim); margin:3px 0; }
+    .player-panel .stat b { color:var(--text); }
+    .energy-display {
+        text-align:center; margin:10px 0; font-size:2rem; font-weight:800; color:#f1c40f;
+    }
+    .energy-display small { font-size:1rem; color:var(--text-dim); }
+    .relics { margin-top:10px; font-size:.78rem; color:var(--text-dim); }
+    .relics .relic { display:inline-block; margin-right:6px; padding:2px 8px; background:rgba(241,196,15,.1); border:1px solid #8a6d12; border-radius:6px; color:#f1c40f; }
+    .log {
+        flex:1; background:#0a0d18; border:1px solid var(--border); border-radius:8px;
+        padding:10px; font-size:.78rem; color:#9aa0b4; max-height:220px; overflow-y:auto;
+        font-family:"Cascadia Code", Consolas, monospace;
+    }
+    .log div { margin:2px 0; }
+    .log .dmg { color:#e74c3c; }
+    .log .blk { color:var(--accent); }
+    .log .heal { color:#2ecc71; }
+    .log .turn { color:#f1c40f; font-weight:700; }
+    .hand-area {
+        background: rgba(0,0,0,.25); border-radius:10px; padding:12px; min-height:130px;
+        display:flex; gap:10px; justify-content:center; flex-wrap:wrap; align-items:flex-end;
+    }
+    .card {
+        width:120px; background:linear-gradient(180deg,#232a45,#1a2038);
+        border:2px solid var(--border); border-radius:10px; padding:8px; cursor:pointer;
+        transition:transform .12s, border-color .12s, box-shadow .12s; user-select:none;
+        position:relative;
+    }
+    .card:hover { transform:translateY(-12px); border-color:var(--accent); }
+    .card.unplayable { opacity:.5; cursor:not-allowed; }
+    .card.unplayable:hover { transform:none; border-color:var(--border); }
+    .card.attack { border-color:#8a3a3a; }
+    .card.skill { border-color:#3a5a8a; }
+    .card.power { border-color:#7a3a8a; }
+    .card .cost {
+        position:absolute; top:-6px; left:-6px; width:24px; height:24px; border-radius:50%;
+        background:#f1c40f; color:#1a1a1a; font-weight:800; display:flex; align-items:center; justify-content:center;
+        border:2px solid #1a2038;
+    }
+    .card .cname { font-weight:700; font-size:.9rem; margin:6px 0 4px; text-align:center; }
+    .card .ctype { font-size:.68rem; color:var(--text-dim); text-align:center; margin-bottom:4px; }
+    .card .cdesc { font-size:.72rem; color:#c0c6d8; text-align:center; line-height:1.3; }
+    .piles { display:flex; justify-content:center; gap:24px; margin-top:8px; font-size:.8rem; color:var(--text-dim); }
+    .btn-end {
+        display:block; margin:12px auto 0; background:var(--accent); color:#0f1220; font-weight:700;
+        border:none; padding:10px 28px; border-radius:8px; cursor:pointer; font-size:1rem;
+    }
+    .btn-end:hover { filter:brightness(1.1); }
+    .btn-end:disabled { background:var(--bg-soft); color:var(--text-dim); cursor:not-allowed; }
+    .overlay {
+        position:fixed; inset:0; background:rgba(0,0,0,.8); display:none;
+        align-items:center; justify-content:center; z-index:10;
+    }
+    .overlay.show { display:flex; }
+    .overlay .box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:32px 48px; text-align:center; }
+    .overlay h2 { font-size:1.8rem; margin:0 0 12px; }
+    .overlay .win { color:#2ecc71; } .overlay .lose { color:#e74c3c; }
+    .overlay button { margin-top:16px; background:var(--accent); color:#0f1220; font-weight:700; border:none; padding:10px 24px; border-radius:8px; cursor:pointer; }
+    .enemy-target-prompt { text-align:center; color:#f1c40f; font-size:.88rem; margin-bottom:6px; min-height:1.2em; }
+</style>
+</head>
+<body>
+<div class="page play-wrap">
+<a class="back" href="index.html" style="display:inline-block;margin-bottom:12px">← 返回作品集首页</a>
+<h1 style="text-align:center">卡牌游戏 Kapai</h1>
+<p class="subtitle" style="text-align:center">杀戮尖塔风格回合制卡牌战斗 · 点击卡牌出牌</p>
+
+<div class="board">
+    <div class="topbar">
+        <span>第 <span class="turn" id="turn">1</span> 回合</span>
+        <span id="phase-text">你的回合</span>
+    </div>
+
+    <div class="enemy-target-prompt" id="prompt"></div>
+    <div class="enemies" id="enemies"></div>
+
+    <div class="mid">
+        <div class="player-panel" id="player-panel"></div>
+        <div class="log" id="log"></div>
+    </div>
+
+    <div class="hand-area" id="hand"></div>
+    <div class="piles">
+        <span>抽牌堆: <b id="draw-count">0</b></span>
+        <span>弃牌堆: <b id="discard-count">0</b></span>
+    </div>
+    <button class="btn-end" id="end-btn" onclick="endTurn()">结束回合</button>
+</div>
+</div>
+
+<div class="overlay" id="overlay">
+    <div class="box">
+        <h2 id="result-title"></h2>
+        <p id="result-detail" style="color:var(--text-dim)"></p>
+        <button onclick="startBattle()">再来一局</button>
+        <a href="index.html" style="display:block;margin-top:10px;color:var(--text-dim);font-size:.85rem">返回首页</a>
+    </div>
+</div>
+
+<script>
+(function(){
+// ===== 卡牌数据（来自 cards.json）=====
+const CARD_DB = {
+    STRIKE:      { name:"打击", cost:1, type:"ATTACK", target:"SINGLE", desc:"造成6点伤害。", effects:[{type:"DAMAGE",amount:6}] },
+    DEFEND:      { name:"防御", cost:1, type:"SKILL", target:"SELF", desc:"获得5点格挡。", effects:[{type:"BLOCK",amount:5}] },
+    BASH:        { name:"痛击", cost:2, type:"ATTACK", target:"SINGLE", desc:"造成8点伤害，施加2层易伤。", effects:[{type:"DAMAGE",amount:8},{type:"APPLY_STATUS",statusId:"VULNERABLE",amount:2,toSelf:false}] },
+    CLEAVE:      { name:"顺劈斩", cost:1, type:"ATTACK", target:"ALL_ENEMIES", desc:"对全体敌人造成8点伤害。", effects:[{type:"DAMAGE",amount:8}] },
+    POMMEL_STRIKE:{ name:"剑柄打击", cost:1, type:"ATTACK", target:"SINGLE", desc:"造成9点伤害，抽1张牌。", effects:[{type:"DAMAGE",amount:9},{type:"DRAW",amount:1}] },
+    IRON_WAVE:   { name:"铁浪", cost:1, type:"ATTACK", target:"SINGLE", desc:"造成5点伤害，获得5点格挡。", effects:[{type:"DAMAGE",amount:5},{type:"BLOCK",amount:5}] },
+    SHRUG_IT_OFF:{ name:"耸肩防御", cost:1, type:"SKILL", target:"SELF", desc:"获得8点格挡，抽1张牌。", effects:[{type:"BLOCK",amount:8},{type:"DRAW",amount:1}] },
+    DEMON_FORM:  { name:"恶魔形态", cost:3, type:"POWER", target:"SELF", desc:"获得2层力量。", effects:[{type:"APPLY_STATUS",statusId:"STRENGTH",amount:2,toSelf:true}] },
+    QUICK_STRIKE:{ name:"迅捷打击", cost:1, type:"ATTACK", target:"SINGLE", desc:"造成5点伤害。", effects:[{type:"DAMAGE",amount:5}] },
+    BARRIER:     { name:"屏障", cost:0, type:"SKILL", target:"SELF", desc:"获得3点格挡。", effects:[{type:"BLOCK",amount:3}] },
+};
+
+// 初始牌组（来自 ConsoleBattleDemo）
+const INITIAL_DECK = ["STRIKE","STRIKE","STRIKE","STRIKE","STRIKE","DEFEND","DEFEND","DEFEND","DEFEND","BASH","BASH","IRON_WAVE","IRON_WAVE"];
+
+const STATUS_INFO = {
+    VULNERABLE:{name:"易伤",buff:false}, WEAK:{name:"虚弱",buff:false}, FRAIL:{name:"脆弱",buff:false},
+    STRENGTH:{name:"力量",buff:true}, DEXTERITY:{name:"敏捷",buff:true}, BLOCK:{name:"格挡",buff:false},
+    ARTIFACT:{name:"人工制品",buff:true}, REGEN:{name:"再生",buff:true}
+};
+const DECREMENTAL = ["VULNERABLE","WEAK","FRAIL"];
+
+// ===== 游戏状态 =====
+let state;
+function makeCreature(id,name,maxHp,type){
+    return { id, name, maxHp, currentHp:maxHp, type, energy:0, block:0, statuses:[], dead:false };
+}
+function startBattle(){
+    const player = makeCreature("P","战士",50,"PLAYER");
+    const e1 = makeCreature("E1","尖刺史莱姆",24,"ENEMY");
+    const e2 = makeCreature("E2","酸液史莱姆",20,"ENEMY");
+    e1.intent = makeIntent(e1);
+    e2.intent = makeIntent(e2);
+    const deck = INITIAL_DECK.map(id => JSON.parse(JSON.stringify(CARD_DB[id])));
+    // 洗牌
+    for (let i=deck.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; }
+    state = {
+        player, enemies:[e1,e2],
+        drawPile: deck, hand:[], discardPile:[],
+        turn:0, phase:"PLAYER_TURN", energy:0,
+        penNibCounter:0, log:[],
+        selectedCard:null, animating:false,
+    };
+    document.getElementById("overlay").classList.remove("show");
+    startPlayerTurn(true);
+}
+
+function makeIntent(e){
+    const dmg = 6 + (statusAmount(e,"STRENGTH")||0);
+    return { kind:"ATTACK", damage:dmg, amount:dmg };
+}
+
+// ===== 状态查询 =====
+function statusAmount(c, sid){
+    const s = c.statuses.find(x=>x.id===sid);
+    return s ? s.amount : 0;
+}
+
+// ===== 抽弃牌 =====
+function drawCards(n){
+    for (let i=0;i<n;i++){
+        if (state.drawPile.length===0){
+            if (state.discardPile.length===0) return;
+            // 洗牌
+            const d = state.discardPile;
+            for (let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
+            state.drawPile = d; state.discardPile = [];
+        }
+        state.hand.push(state.drawPile.pop());
+    }
+}
+function discardHand(){ for (const c of state.hand) state.discardPile.push(c); state.hand=[]; }
+
+// ===== 回合 =====
+function startPlayerTurn(isFirst){
+    state.turn++;
+    state.phase = "PLAYER_TURN";
+    state.energy = 3;
+    drawCards(5);
+    // 燃烧之血遗物：回合开始回2血
+    heal(state.player, 2);
+    if (!isFirst) addLog(`---- 第 ${state.turn} 回合 ----`,"turn");
+    else addLog(`战斗开始！---- 第 1 回合 ----`,"turn");
+    render();
+}
+function endTurn(){
+    if (state.phase!=="PLAYER_TURN"||state.animating) return;
+    state.phase = "END_PLAYER_TURN";
+    discardHand();
+    decayStatuses(state.player);
+    purgeStatuses(state.player);
+    // 敌人意图
+    for (const e of state.enemies) if(!e.dead) e.intent = makeIntent(e);
+    // 敌人行动
+    state.phase = "ENEMY_ACTION";
+    enemyTurn();
+}
+
+function enemyTurn(){
+    state.animating = true;
+    const alive = state.enemies.filter(e=>!e.dead);
+    let idx = 0;
+    function nextEnemy(){
+        if (idx >= alive.length){ finishEnemyTurn(); return; }
+        const e = alive[idx]; idx++;
+        executeEnemyIntent(e);
+        if (checkBattleEnd()){ render(); return; }
+        setTimeout(nextEnemy, 450);
+    }
+    setTimeout(nextEnemy, 300);
+}
+function executeEnemyIntent(e){
+    if (e.dead) return;
+    const intent = e.intent;
+    if (intent.kind==="ATTACK" || intent.kind==="ATTACK_DEFEND"){
+        const dmg = intent.damage;
+        addLog(`${e.name} 攻击造成 ${dmg} 伤害`,"dmg");
+        takeDamage(state.player, dmg);
+    } else if (intent.kind==="DEFEND"){
+        gainBlock(e, intent.amount);
+        addLog(`${e.name} 获得 ${intent.amount} 格挡`,"blk");
+    }
+    render();
+}
+function finishEnemyTurn(){
+    for (const e of state.enemies){ if(!e.dead){ decayStatuses(e); purgeStatuses(e); } }
+    state.animating = false;
+    if (checkBattleEnd()){ render(); return; }
+    startPlayerTurn(false);
+}
+
+function checkBattleEnd(){
+    if (state.player.dead){
+        state.phase = "BATTLE_END";
+        showResult(false);
+        return true;
+    }
+    if (state.enemies.every(e=>e.dead)){
+        state.phase = "BATTLE_END";
+        showResult(true);
+        return true;
+    }
+    return false;
+}
+
+// ===== 伤害/格挡/状态 =====
+function takeDamage(c, amount){
+    let remaining = amount;
+    if (c.block > 0){
+        const absorbed = Math.min(c.block, amount);
+        c.block -= absorbed;
+        remaining = amount - absorbed;
+    }
+    if (remaining > 0){
+        c.currentHp = Math.max(0, c.currentHp - remaining);
+        if (c.currentHp <= 0) c.dead = true;
+    }
+}
+function heal(c, n){ c.currentHp = Math.min(c.maxHp, c.currentHp + n); }
+function gainBlock(c, amount){
+    let actual = amount;
+    if (statusAmount(c,"FRAIL")>0) actual = Math.floor(amount*0.75);
+    c.block += actual;
+}
+function applyStatus(c, sid, amount){
+    // 人工制品抵消 debuff
+    if (STATUS_INFO[sid] && !STATUS_INFO[sid].buff && statusAmount(c,"ARTIFACT")>0){
+        const a = c.statuses.find(x=>x.id==="ARTIFACT");
+        a.amount--; if(a.amount<=0) c.statuses = c.statuses.filter(s=>s!==a);
+        return;
+    }
+    const existing = c.statuses.find(x=>x.id===sid);
+    if (existing){ existing.amount += amount; existing.justApplied = true; }
+    else c.statuses.push({id:sid, amount, justApplied:true});
+}
+function decayStatuses(c){
+    for (const s of c.statuses){
+        if (s.justApplied){ s.justApplied = false; }
+        else if (DECREMENTAL.includes(s.id)){ s.amount = Math.max(0, s.amount-1); }
+    }
+    // BLOCK 不衰减但回合结束清空（修正原作 bug，否则游戏无法推进）
+    c.block = 0;
+}
+function purgeStatuses(c){
+    c.statuses = c.statuses.filter(s=>s.amount>0);
+}
+
+// ===== 出牌 =====
+function playCard(handIdx, targetIdx){
+    if (state.phase!=="PLAYER_TURN"||state.animating) return;
+    const card = state.hand[handIdx];
+    if (!card || state.energy < card.cost) return;
+    let target = null;
+    if (card.target==="SINGLE" || card.target==="ALL_ENEMIES"){
+        const alive = state.enemies.filter(e=>!e.dead);
+        if (alive.length===0) return;
+        if (card.target==="SINGLE"){
+            if (targetIdx==null) return;
+            target = state.enemies[targetIdx];
+            if (!target || target.dead) return;
+        }
+    }
+    // 扣能量
+    state.energy -= card.cost;
+    state.hand.splice(handIdx,1);
+    state.selectedCard = null;
+
+    // 执行效果
+    for (const eff of card.effects){
+        executeEffect(eff, state.player, target, card.target);
+    }
+    // 钢笔尖遗物：攻击牌计数
+    if (card.type==="ATTACK"){
+        state.penNibCounter++;
+        if (state.penNibCounter>=3){ state.penNibCounter=0; state.energy+=1; addLog("钢笔尖：+1 能量","heal"); }
+    }
+    state.discardPile.push(card);
+    checkBattleEnd();
+    render();
+}
+
+function executeEffect(eff, self, target, cardTarget){
+    if (eff.type==="DAMAGE"){
+        const targets = cardTarget==="ALL_ENEMIES" ? state.enemies.filter(e=>!e.dead) : [target];
+        for (const t of targets){
+            if (!t) continue;
+            let dmg = eff.amount;
+            dmg += statusAmount(self,"STRENGTH");
+            if (statusAmount(self,"WEAK")>0) dmg = Math.floor(dmg*0.75);
+            if (statusAmount(t,"VULNERABLE")>0) dmg = Math.floor(dmg*1.5);
+            dmg = Math.max(0, dmg);
+            addLog(`${self.name} 对 ${t.name} 造成 ${dmg} 伤害`,"dmg");
+            takeDamage(t, dmg);
+        }
+    } else if (eff.type==="BLOCK"){
+        gainBlock(self, eff.amount);
+        addLog(`${self.name} 获得 ${eff.amount} 格挡`,"blk");
+    } else if (eff.type==="APPLY_STATUS"){
+        const dest = eff.toSelf ? self : target;
+        if (dest){ applyStatus(dest, eff.statusId, eff.amount); addLog(`${dest.name} 获得 ${eff.amount} 层${STATUS_INFO[eff.statusId].name}`,"blk"); }
+    } else if (eff.type==="DRAW"){
+        drawCards(eff.amount);
+        addLog(`抽 ${eff.amount} 张牌`,"blk");
+    }
+}
+
+// ===== 渲染 =====
+function addLog(text, cls){
+    state.log.push({text, cls});
+    if (state.log.length>60) state.log.shift();
+}
+function render(){
+    // 回合/阶段
+    document.getElementById("turn").textContent = state.turn;
+    document.getElementById("phase-text").textContent = state.phase==="PLAYER_TURN" ? "你的回合 — 出牌" : "敌人回合…";
+    document.getElementById("end-btn").disabled = state.phase!=="PLAYER_TURN" || state.animating;
+
+    // 敌人
+    const eDiv = document.getElementById("enemies");
+    eDiv.innerHTML = "";
+    const targetable = state.selectedCard!=null;
+    state.enemies.forEach((e,i)=>{
+        const d = document.createElement("div");
+        d.className = "enemy" + (e.dead?" dead":"") + (targetable && !e.dead && state.hand[state.selectedCard] && (state.hand[state.selectedCard].target==="SINGLE"||state.hand[state.selectedCard].target==="ALL_ENEMIES")?" targetable":"");
+        let intentHtml = "";
+        if (!e.dead && e.intent){
+            const ik = e.intent.kind;
+            const cls = ik==="ATTACK"||ik==="ATTACK_DEFEND" ? "intent-attack" : (ik==="DEFEND"?"intent-defend":"intent-buff");
+            const label = ik==="ATTACK"||ik==="ATTACK_DEFEND" ? `⚔ ${e.intent.damage}` : (ik==="DEFEND"?`🛡 ${e.intent.amount}`:"✦");
+            intentHtml = `<div class="intent ${cls}">${label}</div>`;
+        }
+        let stHtml = "";
+        for (const s of e.statuses){
+            if (s.amount<=0) continue;
+            const inf = STATUS_INFO[s.id];
+            if (!inf) continue;
+            stHtml += `<span class="status-chip ${inf.buff?"buff":"debuff"}">${inf.name}${s.amount}</span>`;
+        }
+        d.innerHTML = `
+            <div class="name">${e.name}</div>
+            <div class="hp">HP ${e.currentHp}/${e.maxHp}</div>
+            ${e.block>0?`<div class="block">🛡 ${e.block}</div>`:""}
+            ${stHtml?`<div class="statuses">${stHtml}</div>`:""}
+            ${intentHtml}`;
+        d.onclick = ()=>{
+            if (targetable && !e.dead){
+                const card = state.hand[state.selectedCard];
+                if (card && (card.target==="SINGLE")){
+                    playCard(state.selectedCard, i);
+                } else if (card && card.target==="ALL_ENEMIES"){
+                    playCard(state.selectedCard, null);
+                }
+            }
+        };
+        eDiv.appendChild(d);
+    });
+
+    // 玩家面板
+    const pp = document.getElementById("player-panel");
+    const p = state.player;
+    let pstHtml = "";
+    for (const s of p.statuses){
+        if (s.amount<=0 || s.id==="BLOCK") continue;
+        const inf = STATUS_INFO[s.id];
+        if (!inf) continue;
+        pstHtml += `<span class="status-chip ${inf.buff?"buff":"debuff"}">${inf.name}${s.amount}</span> `;
+    }
+    pp.innerHTML = `
+        <div class="pname">${p.name}</div>
+        <div class="hp-bar"><div class="hp-fill" style="width:${p.currentHp/p.maxHp*100}%"></div></div>
+        <div class="stat">生命: <b>${p.currentHp}/${p.maxHp}</b></div>
+        ${p.block>0?`<div class="stat">格挡: <b style="color:var(--accent)">${p.block}</b></div>`:""}
+        <div class="stat">${pstHtml?"状态: "+pstHtml:""}</div>
+        <div class="energy-display">${state.energy}<small>/3</small></div>
+        <div class="relics">
+            <span class="relic">🔥 燃烧之血</span>
+            <span class="relic">✒ 钢笔尖 ${state.penNibCounter}/3</span>
+        </div>`;
+
+    // 日志
+    const lg = document.getElementById("log");
+    lg.innerHTML = state.log.map(l=>`<div class="${l.cls||""}">${l.text}</div>`).join("");
+    lg.scrollTop = lg.scrollHeight;
+
+    // 手牌
+    const hd = document.getElementById("hand");
+    hd.innerHTML = "";
+    state.hand.forEach((c,i)=>{
+        const div = document.createElement("div");
+        const playable = state.energy>=c.cost && state.phase==="PLAYER_TURN";
+        div.className = "card " + c.type.toLowerCase() + (playable?"":" unplayable") + (state.selectedCard===i?" selected":"");
+        const tlabel = c.type==="ATTACK"?"攻击":(c.type==="SKILL"?"技能":"能力");
+        div.innerHTML = `
+            <div class="cost">${c.cost}</div>
+            <div class="cname">${c.name}</div>
+            <div class="ctype">${tlabel}</div>
+            <div class="cdesc">${c.desc}</div>`;
+        div.onclick = ()=>{
+            if (!playable || state.animating) return;
+            if (c.target==="SINGLE"){
+                const alive = state.enemies.filter(e=>!e.dead);
+                if (alive.length===1){ playCard(i, state.enemies.indexOf(alive[0])); return; }
+                state.selectedCard = (state.selectedCard===i)?null:i;
+                document.getElementById("prompt").textContent = state.selectedCard!=null ? "选择目标敌人" : "";
+                render();
+            } else {
+                playCard(i, null);
+            }
+        };
+        hd.appendChild(div);
+    });
+
+    document.getElementById("draw-count").textContent = state.drawPile.length;
+    document.getElementById("discard-count").textContent = state.discardPile.length;
+    if (state.selectedCard==null) document.getElementById("prompt").textContent = "";
+}
+
+function showResult(win){
+    const ov = document.getElementById("overlay");
+    document.getElementById("result-title").textContent = win ? "胜利！" : "失败…";
+    document.getElementById("result-title").className = win?"win":"lose";
+    document.getElementById("result-detail").textContent = `第 ${state.turn} 回合 · 玩家剩余 ${state.player.currentHp} HP`;
+    setTimeout(()=>ov.classList.add("show"), 600);
+}
+
+// 暴露给按钮
+window.endTurn = endTurn;
+window.startBattle = startBattle;
+
+startBattle();
+})();
+</script>
+</body>
+</html>

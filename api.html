@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>班级 API 服务 · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.play-link{display:inline-block;margin:18px 0;padding:12px 28px;border-radius:10px;background:var(--green);color:#0f1220;font-weight:700;font-size:1.05rem;text-decoration:none}.play-link:hover{filter:brightness(1.1);text-decoration:none}</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<a class="play-link" href="api-play.html">▶ 点击进入在线演示</a>
+<h1>班级 API 服务</h1>
+<p class="subtitle">基于 Token 权限的班级学生查询服务</p>
+<div class="meta">
+<span>类型：后端服务</span><span>技术：Java · Token 鉴权</span><span>构建：VS Code Java</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一个演示「权限控制」的小型后端服务。不同的 Token 代表不同身份，查询班级学生时只能看到自己权限范围内的数据。比如男生 Token 只能看到男生的信息，管理员 Token 能看到所有人，无效 Token 被拒绝。</p>
+
+<h2>主要类与功能</h2>
+<ul>
+<li><strong>Main</strong>：程序入口，用不同 Token 测试查询结果</li>
+<li><strong>ClassApiService</strong>：对外提供的查询接口，根据 Token 过滤数据</li>
+<li><strong>ClassDataStore</strong>：班级数据存储</li>
+<li><strong>Student</strong>：学生数据模型</li>
+<li><strong>App</strong>：辅助入口</li>
+</ul>
+
+<h2>权限示例</h2>
+<ul>
+<li><code>token_male_only</code>：只能看男生</li>
+<li><code>token_female_only</code>：只能看女生</li>
+<li><code>token_leader_admin</code>：管理员，看所有人</li>
+<li><code>hacker_token</code>：无效，被拒绝</li>
+</ul>
+
+<h2>运行方式</h2>
+<p>主类 <code>Main</code>，直接运行即可看到不同 Token 的查询输出：</p>
+<div class="run"><code>java -cp src Main</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>api/</code> 目录。</p>
+</div>
+</body>
+</html>

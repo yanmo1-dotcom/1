@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奇斯 2 Chise2 · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<h1>奇斯 2 Chise2</h1>
+<p class="subtitle">奇斯要塞的升级版，新增网页运行版本</p>
+<div class="meta">
+<span>类型：桌面 / 网页游戏</span><span>技术：Java · libGDX · GWT</span><span>模块：core / desktop / web</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是「奇斯要塞」的第二个版本，核心玩法相同（Jackal 风格策略射击）。最大的区别是新增了 <strong>Web 网页版本</strong>：通过 GWT 把 Java 代码编译成 JavaScript，让游戏可以直接在浏览器里运行，无需安装。</p>
+
+<h2>与奇斯要塞的区别</h2>
+<ul>
+<li>新增 <strong>web</strong> 模块（<code>HtmlLauncher</code> + GWT 配置），支持浏览器运行</li>
+<li>保留 <strong>desktop</strong> 桌面版本</li>
+<li>核心 <strong>core</strong> 与奇斯要塞结构一致（敌人、武器、关卡等）</li>
+</ul>
+
+<h2>运行方式</h2>
+<p>桌面版：</p>
+<div class="run"><code>gradlew desktop:run</code></div>
+<p>网页版（编译后在浏览器打开）：</p>
+<div class="run"><code>gradlew web:superDev</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>chise2/</code> 目录。</p>
+</div>
+</body>
+</html>

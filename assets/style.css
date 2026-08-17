@@ -1,0 +1,180 @@
+/* ===== 作品集门户共享样式 ===== */
+:root {
+    --bg: #0f1220;
+    --bg-soft: #181c2e;
+    --card: #1e2336;
+    --card-hover: #262c44;
+    --border: #2c3350;
+    --text: #e6e8ef;
+    --text-dim: #9aa0b4;
+    --accent: #6ea8fe;
+    --accent-2: #b483ff;
+    --green: #4ade80;
+    --orange: #fbbf24;
+    --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", "Microsoft YaHei", -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ===== 门户首页 ===== */
+.hero {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 64px 24px 24px;
+    text-align: center;
+}
+.hero h1 {
+    font-size: 2.6rem;
+    margin: 0 0 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.hero p { color: var(--text-dim); font-size: 1.1rem; margin: 0 auto 8px; max-width: 640px; }
+.hero .count { color: var(--green); font-weight: 600; }
+.hero .play-badge {
+    display: inline-block; margin-top: 14px; padding: 8px 18px;
+    border-radius: 999px; background: rgba(74,222,128,.12);
+    border: 1px solid var(--green); color: var(--green);
+    font-size: .92rem; font-weight: 600;
+}
+
+.section {
+    max-width: 1100px;
+    margin: 40px auto 0;
+    padding: 0 24px;
+}
+.section h2 {
+    font-size: 1.3rem;
+    margin: 0 0 18px;
+    padding-left: 12px;
+    border-left: 4px solid var(--accent);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+}
+
+.card {
+    display: block;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    color: var(--text);
+    height: 100%;
+}
+.card:hover {
+    transform: translateY(-4px);
+    background: var(--card-hover);
+    border-color: var(--accent);
+    text-decoration: none;
+}
+.card .tag {
+    display: inline-block;
+    font-size: .72rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--bg-soft);
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+}
+.card h3 { margin: 0 0 8px; font-size: 1.15rem; }
+.card p { margin: 0; color: var(--text-dim); font-size: .92rem; }
+.card .tech { margin-top: 12px; font-size: .8rem; color: var(--accent-2); }
+.card .play-tag {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: .72rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(74,222,128,.15);
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+footer {
+    max-width: 1100px;
+    margin: 60px auto 40px;
+    padding: 0 24px;
+    color: var(--text-dim);
+    font-size: .85rem;
+    text-align: center;
+}
+
+/* ===== 项目详情页 ===== */
+.page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+}
+.back {
+    display: inline-block;
+    margin-bottom: 28px;
+    font-size: .9rem;
+    color: var(--text-dim);
+}
+.back:hover { color: var(--accent); }
+.page h1 {
+    font-size: 2.1rem;
+    margin: 0 0 6px;
+}
+.page .subtitle { color: var(--text-dim); margin: 0 0 24px; }
+.page h2 {
+    font-size: 1.15rem;
+    margin: 32px 0 12px;
+    color: var(--accent);
+}
+.page p, .page li { color: var(--text); }
+.page ul { padding-left: 22px; }
+.page .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 24px;
+}
+.page .meta span {
+    font-size: .8rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+}
+.page .run {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 12px 0;
+    overflow-x: auto;
+}
+.page .run code, .page code {
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: .88rem;
+    color: var(--green);
+}
+.page .desc { font-size: 1.02rem; }
+
+@media (max-width: 600px) {
+    .hero h1 { font-size: 2rem; }
+    .grid { grid-template-columns: 1fr; }
+}

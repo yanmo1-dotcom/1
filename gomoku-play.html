@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋 · 点击即玩</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .gomoku-wrap { max-width: 620px; margin: 0 auto; padding: 16px; text-align:center; }
+    .gbox { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; }
+    .players { display:flex; justify-content:center; gap:30px; margin-bottom:14px; }
+    .player { padding:10px 18px; border-radius:10px; background:var(--bg-soft); border:2px solid transparent; min-width:140px; }
+    .player.active { border-color:#2ecc71; }
+    .player .stone { display:inline-block; width:18px; height:18px; border-radius:50%; vertical-align:middle; margin-right:6px; }
+    .stone.black { background:#161616; } .stone.white { background:#fff; border:1px solid #999; }
+    .player .pname { font-weight:700; }
+    .player .ppoints { font-size:.78rem; color:var(--text-dim); }
+    .status { padding:8px; color:var(--accent); font-weight:600; margin-bottom:10px; min-height:1.4em; }
+    .board {
+        display:grid; grid-template-columns:repeat(15, 34px); grid-template-rows:repeat(15, 34px);
+        background:#dcb35c; border:3px solid #8a6a3a; border-radius:4px; margin:0 auto; width:fit-content;
+        position:relative;
+    }
+    .cell { width:34px; height:34px; position:relative; cursor:pointer; }
+    .cell .grid-bg {
+        position:absolute; inset:0;
+        background-image:
+            linear-gradient(#5c421f 1px, transparent 1px),
+            linear-gradient(90deg, #5c421f 1px, transparent 1px);
+        background-size:34px 34px; background-position:0 0;
+    }
+    .cell.playable:hover { background:rgba(255,255,255,.25); }
+    .piece {
+        position:absolute; width:28px; height:28px; border-radius:50%;
+        top:3px; left:3px; z-index:2;
+    }
+    .piece.black { background:radial-gradient(circle at 35% 35%, #444, #111); }
+    .piece.white { background:radial-gradient(circle at 35% 35%, #fff, #ddd); border:1px solid #999; }
+    .piece .last-mark { position:absolute; width:7px; height:7px; background:#e84118; border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%); }
+    .actions { display:flex; gap:10px; justify-content:center; margin-top:16px; }
+    .actions button { background:var(--bg-soft); border:1px solid var(--border); color:var(--text); padding:8px 20px; border-radius:8px; cursor:pointer; }
+    .actions button:hover { border-color:var(--accent); color:var(--accent); }
+    .actions button.primary { background:var(--accent); color:#0f1220; font-weight:700; border:none; }
+    .mode-row { margin-bottom:14px; display:flex; gap:8px; justify-content:center; }
+    .mode-row button { background:var(--bg-soft); border:1px solid var(--border); color:var(--text-dim); padding:6px 16px; border-radius:6px; cursor:pointer; font-size:.85rem; }
+    .mode-row button.active { border-color:var(--accent); color:var(--accent); }
+    .result { margin-top:14px; font-size:1.2rem; font-weight:800; min-height:1.4em; }
+    .result.win { color:#2ecc71; } .result.lose { color:#e74c3c; }
+</style>
+</head>
+<body>
+<div class="page gomoku-wrap">
+<a class="back" href="index.html" style="display:inline-block;margin-bottom:14px">← 返回作品集首页</a>
+<h1>五子棋 Gomoku</h1>
+<p class="subtitle">15×15 棋盘 · 四方向五连胜利 · 白棋先手</p>
+<div class="meta" style="justify-content:center;margin-bottom:14px">
+<span>原作：web-chat-room/gomoku.html</span><span>本地对战/人机</span>
+</div>
+
+<div class="gbox">
+    <div class="mode-row">
+        <button class="active" id="mode-pvp" onclick="setMode('pvp')">双人对战</button>
+        <button id="mode-pve" onclick="setMode('pve')">人机对战（你执白）</button>
+    </div>
+    <div class="players">
+        <div class="player" id="p-black"><span class="stone black"></span><span class="pname" id="name-black">玩家A</span><div class="ppoints">黑棋 · 后手</div></div>
+        <div class="player active" id="p-white"><span class="stone white"></span><span class="pname" id="name-white">玩家B</span><div class="ppoints">白棋 · 先手</div></div>
+    </div>
+    <div class="status" id="status">白棋落子</div>
+    <div class="board" id="board"></div>
+    <div class="result" id="result"></div>
+    <div class="actions">
+        <button class="primary" onclick="newGame()">新局</button>
+        <button onclick="undoMove()">悔棋</button>
+    </div>
+</div>
+</div>
+
+<script>
+(function(){
+const SIZE = 15;
+let board = [];      // 0 空, 1 黑, 2 白
+let lastMove = null;
+let currentTurn = 2; // 白先
+let history = [];    // 落子记录 [{r,c,player}]
+let gameOver = false;
+let mode = "pvp";    // pvp / pve
+
+function initBoard(){
+    board = [];
+    for (let r=0;r<SIZE;r++) board.push(new Array(SIZE).fill(0));
+    lastMove = null; currentTurn = 2; history = []; gameOver = false;
+    $("status").textContent = "白棋落子";
+    $("result").textContent = ""; $("result").className = "result";
+    updateActive();
+    render();
+}
+
+function $(id){ return document.getElementById(id); }
+
+function render(){
+    const b = $("board"); b.innerHTML="";
+    for (let r=0;r<SIZE;r++){
+        for (let c=0;c<SIZE;c++){
+            const cell = document.createElement("div");
+            cell.className = "cell" + (board[r][c]===0 && !gameOver ? " playable":"");
+            const bg = document.createElement("div"); bg.className="grid-bg"; cell.appendChild(bg);
+            if (board[r][c]!==0){
+                const p = document.createElement("div");
+                p.className = "piece " + (board[r][c]===1?"black":"white");
+                if (lastMove && lastMove[0]===r && lastMove[1]===c){
+                    const mk = document.createElement("div"); mk.className="last-mark"; p.appendChild(mk);
+                }
+                cell.appendChild(p);
+            }
+            cell.onclick = ()=>place(r,c);
+            b.appendChild(cell);
+        }
+    }
+}
+
+function place(r, c){
+    if (gameOver) return;
+    if (board[r][c]!==0) return;
+    board[r][c] = currentTurn;
+    lastMove = [r,c];
+    history.push({r,c,player:currentTurn});
+    if (checkWin(r,c,currentTurn)){
+        gameOver = true;
+        const winner = currentTurn===1?"黑棋":"白棋";
+        $("status").textContent = "";
+        $("result").textContent = winner + " 获胜！";
+        $("result").className = "result " + (mode==="pve" && currentTurn===1 ? "lose" : "win");
+        render();
+        return;
+    }
+    if (history.length === SIZE*SIZE){
+        gameOver = true;
+        $("result").textContent = "平局！"; $("result").className="result";
+        render(); return;
+    }
+    currentTurn = currentTurn===1?2:1;
+    updateActive();
+    $("status").textContent = (currentTurn===1?"黑棋":"白棋") + "落子";
+    render();
+    if (mode==="pve" && currentTurn===1 && !gameOver){
+        setTimeout(aiMove, 500);
+    }
+}
+
+function updateActive(){
+    $("p-black").className = "player" + (currentTurn===1?" active":"");
+    $("p-white").className = "player" + (currentTurn===2?" active":"");
+}
+
+function checkWin(r,c,player){
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (const [dr,dc] of dirs){
+        let count = 1;
+        for (let i=1;i<5;i++){ const nr=r+dr*i,nc=c+dc*i; if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc]!==player) break; count++; }
+        for (let i=1;i<5;i++){ const nr=r-dr*i,nc=c-dc*i; if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc]!==player) break; count++; }
+        if (count>=5) return true;
+    }
+    return false;
+}
+
+// 简单 AI：找能连成五子或阻挡的位置
+function aiMove(){
+    let best = null, bestScore = -1;
+    for (let r=0;r<SIZE;r++){
+        for (let c=0;c<SIZE;c++){
+            if (board[r][c]!==0) continue;
+            // 只考虑有邻居的位置
+            if (!hasNeighbor(r,c)) continue;
+            const myScore = scoreAt(r,c,1);   // AI 是黑(1)
+            const oppScore = scoreAt(r,c,2);  // 阻挡白(2)
+            const s = Math.max(myScore*1.1, oppScore) + Math.random()*0.1;
+            if (s > bestScore){ bestScore = s; best = [r,c]; }
+        }
+    }
+    if (!best){
+        // 中心附近
+        best = [7,7];
+        if (board[7][7]!==0){ for (let r=6;r<9;r++) for(let c=6;c<9;c++) if(board[r][c]===0){best=[r,c];} }
+    }
+    if (best) place(best[0], best[1]);
+}
+function hasNeighbor(r,c){
+    for (let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+        if(!dr&&!dc) continue;
+        const nr=r+dr,nc=c+dc;
+        if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc]!==0) return true;
+    }
+    return false;
+}
+function scoreAt(r,c,player){
+    const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+    let total=0;
+    for (const [dr,dc] of dirs){
+        let count=1;
+        for(let i=1;i<5;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc]!==player)break;count++;}
+        for(let i=1;i<5;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc]!==player)break;count++;}
+        if(count>=5) total+=100000;
+        else if(count===4) total+=10000;
+        else if(count===3) total+=1000;
+        else if(count===2) total+=100;
+        else total+=10;
+    }
+    return total;
+}
+
+window.setMode = function(m){
+    mode = m;
+    $("mode-pvp").className = m==="pvp"?"active":"";
+    $("mode-pve").className = m==="pve"?"active":"";
+    $("name-black").textContent = m==="pve" ? "电脑" : "玩家A";
+    $("name-white").textContent = m==="pve" ? "你" : "玩家B";
+    newGame();
+};
+window.newGame = initBoard;
+window.undoMove = function(){
+    if (gameOver || history.length===0) return;
+    if (mode==="pve" && history.length>=2 && currentTurn===2){
+        // 撤销 AI 和自己各一步
+        const h1 = history.pop(); board[h1.r][h1.c]=0;
+        const h2 = history.pop(); board[h2.r][h2.c]=0;
+        currentTurn = 2;
+    } else {
+        const h = history.pop(); board[h.r][h.c]=0;
+        currentTurn = h.player;
+    }
+    lastMove = history.length>0 ? [history[history.length-1].r, history[history.length-1].c] : null;
+    updateActive();
+    $("status").textContent = (currentTurn===1?"黑棋":"白棋") + "落子";
+    render();
+};
+
+newGame();
+})();
+</script>
+</body>
+</html>

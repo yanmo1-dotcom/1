@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>体素泰拉瑞亚 Voxel Terraria · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<h1>体素泰拉瑞亚 Voxel Terraria</h1>
+<p class="subtitle">体素风格的沙盒游戏</p>
+<div class="meta">
+<span>类型：桌面游戏</span><span>技术：Java · LWJGL · OpenGL</span><span>构建：Gradle</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一个类似《泰拉瑞亚 / 我的世界》的体素沙盒游戏。在 3D 体素世界里移动、与世界交互，包含完整的子系统：世界生成、实体、背包、粒子、音效、存档。</p>
+
+<h2>子系统（模块）</h2>
+<ul>
+<li><strong>world</strong>：世界与方块管理、地形生成</li>
+<li><strong>entity</strong>：实体（玩家、生物等）</li>
+<li><strong>inventory</strong>：背包与物品系统</li>
+<li><strong>particle</strong>：粒子效果</li>
+<li><strong>audio</strong>：音频播放</li>
+<li><strong>save</strong>：存档读写</li>
+<li><strong>ui</strong>：界面渲染</li>
+</ul>
+
+<h2>运行方式</h2>
+<p>Gradle 项目，主类 <code>com.yourname.voxelgame.Main</code>。依赖 <code>libs/</code> 目录下的本地库。</p>
+<div class="run"><code>gradlew run</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>voxel-terraria/</code> 目录。</p>
+</div>
+</body>
+</html>

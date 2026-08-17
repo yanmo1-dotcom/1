@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>卡牌游戏 Kapai · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.play-link{display:inline-block;margin:18px 0;padding:12px 28px;border-radius:10px;background:var(--green);color:#0f1220;font-weight:700;font-size:1.05rem;text-decoration:none}.play-link:hover{filter:brightness(1.1);text-decoration:none}</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<a class="play-link" href="kapai-play.html">▶ 点击直接玩网页版</a>
+<h1>卡牌游戏 Kapai</h1>
+<p class="subtitle">一款 Roguelike 卡牌游戏（Kapai — Roguelike Card Game）</p>
+<div class="meta">
+<span>类型：桌面游戏</span><span>技术：Java 17 · libGDX · Maven 多模块</span><span>模块：core / data / ui</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一款类似《杀戮尖塔》的 Roguelike 卡牌战斗游戏。玩家用卡牌与怪物战斗，每局地图随机、卡组随机，死亡重来。工程拆成三个 Maven 模块，职责清晰。</p>
+
+<h2>模块结构</h2>
+<ul>
+<li><strong>kapai-core</strong>：核心逻辑，包含战斗（battle）、卡牌（card）、生物（creature）、效果（effect）等子系统</li>
+<li><strong>kapai-data</strong>：数据层，卡牌与生物的定义、配置</li>
+<li><strong>kapai-ui</strong>：基于 libGDX 的界面与渲染（LWJGL3 桌面启动）</li>
+</ul>
+
+<h2>技术栈</h2>
+<ul>
+<li>libGDX 1.12.1 作为游戏框架</li>
+<li>Lombok 简化实体代码、Jackson 处理 JSON 数据、SLF4J 日志</li>
+<li>Junit 5 单元测试</li>
+</ul>
+
+<h2>运行方式</h2>
+<p>在 <code>kapai/</code> 目录下用 Maven 构建，运行 UI 模块（LWJGL3 桌面启动器）。</p>
+<div class="run"><code>mvn -pl kapai-ui -am package<br>java -jar kapai-ui/target/*.jar</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>kapai/</code> 目录。</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web 聊天室 Token 版 · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.play-link{display:inline-block;margin:18px 0;padding:12px 28px;border-radius:10px;background:var(--green);color:#0f1220;font-weight:700;font-size:1.05rem;text-decoration:none}.play-link:hover{filter:brightness(1.1);text-decoration:none}</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<a class="play-link" href="web-chat-room-play.html">▶ 点击进入在线演示</a>
+<a class="play-link" href="gomoku-play.html" style="background:var(--accent-2)">▶ 五子棋点击即玩</a>
+<h1>Web 聊天室（Token 版）</h1>
+<p class="subtitle">带用户登录与数据库存储的网页聊天室</p>
+<div class="meta">
+<span>类型：Web 应用</span><span>技术：Spring Boot · WebSocket · H2/MySQL</span><span>构建：Maven</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一个完整的网页聊天室后端 + 前端项目。用户登录后获得 Token，消息持久化到数据库。除了聊天，还内置了后台管理、移动端页面和五子棋小游戏页面。</p>
+
+<h2>主要功能与文件</h2>
+<ul>
+<li><strong>WebChatApplication</strong>：Spring Boot 启动类</li>
+<li><strong>TokenManager</strong>：登录 Token 的生成与校验</li>
+<li><strong>static/index.html</strong>：桌面版聊天页面（窄屏自动跳转移动版）</li>
+<li><strong>static/mobile.html</strong>：移动版聊天页面</li>
+<li><strong>static/admin.html</strong>：后台管理页面</li>
+<li><strong>static/gomoku.html</strong>：五子棋游戏页面</li>
+<li><strong>schema-h2.sql / schema-mysql.sql</strong>：H2 与 MySQL 两种数据库建表脚本</li>
+<li><strong>users.json</strong>：用户数据</li>
+</ul>
+
+<h2>运行方式</h2>
+<p>在 <code>web-chat-room/</code> 目录下用 Maven 启动 Spring Boot，然后浏览器访问本地服务。</p>
+<div class="run"><code>mvn spring-boot:run<br># 浏览器打开 http://localhost:8080</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>web-chat-room/</code> 目录。</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股实时行情 · 在线演示</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .stock-wrap { max-width: 1040px; margin: 0 auto; padding: 20px; }
+    .stock-box { background:#fff; color:#333; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,.08); padding:28px; }
+    .stock-box h1 { text-align:center; color:#333; margin:0 0 22px; font-size:1.5rem; }
+    .search-bar { display:flex; gap:10px; justify-content:center; margin-bottom:20px; }
+    .search-bar input {
+        padding:12px; width:320px; border:2px solid #ddd; border-radius:8px; font-size:16px; outline:none; transition:.3s;
+    }
+    .search-bar input:focus { border-color:#e74c3c; }
+    .search-bar button {
+        padding:12px 24px; border:none; background:#e74c3c; color:#fff; border-radius:8px; font-size:16px; cursor:pointer; font-weight:600;
+    }
+    .search-bar button:hover { background:#c0392b; }
+    .panel { background:#fff8f8; border:2px dashed #f5c6c6; border-radius:10px; padding:16px; margin-bottom:18px; }
+    .panel .ptitle { font-weight:700; margin-bottom:12px; color:#333; }
+    .rank-btns { display:flex; gap:10px; flex-wrap:wrap; }
+    .rank-btn { padding:8px 18px; border:none; border-radius:6px; cursor:pointer; font-size:.92rem; font-weight:600; color:#fff; }
+    .rank-btn.vol { background:#e67e22; } .rank-btn.amt { background:#9b59b6; } .rank-btn.chg { background:#27ae60; }
+    .rank-btn:hover { filter:brightness(1.1); }
+    .panel .note { color:#999; font-size:.78rem; margin-top:10px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { padding:10px 8px; text-align:center; border-bottom:1px solid #eee; font-size:.9rem; }
+    th { color:#888; font-weight:600; background:#fafafa; }
+    .name { font-weight:700; color:#333; }
+    .code { color:#999; font-size:.82rem; }
+    .up { color:#e74c3c; } .down { color:#2ecc71; }
+    .price { font-size:1.1em; font-weight:600; }
+    .rank-1 { color:#e74c3c; font-weight:800; } .rank-2 { color:#e67e22; font-weight:800; } .rank-3 { color:#f1c40f; font-weight:800; }
+    .time { color:#bbb; font-size:.78rem; }
+    #loading { text-align:center; padding:30px; color:#999; display:none; }
+    .empty { text-align:center; padding:20px; color:#999; }
+    .demo-note { background:#fff3cd; color:#856404; padding:8px 14px; border-radius:6px; font-size:.82rem; margin-bottom:16px; }
+</style>
+</head>
+<body>
+<div class="page stock-wrap">
+<a class="back" href="index.html" style="display:inline-block;margin-bottom:16px;color:var(--text-dim)">← 返回作品集首页</a>
+<div class="stock-box">
+<h1>📈 A股实时行情查询</h1>
+<div class="demo-note">演示说明：新浪接口受浏览器跨域限制无法直接调用，本页使用本地模拟数据演示完整界面与交互（搜索、三种排行榜、涨红跌绿）。</div>
+
+<div class="search-bar">
+    <input id="keyword" placeholder="输入股票名称或代码 (如: 茅台, sh600519)" onkeydown="if(event.key==='Enter')doSearch()">
+    <button onclick="doSearch()">搜索</button>
+</div>
+
+<div class="panel">
+    <div class="ptitle">📊 市场聚合分析：</div>
+    <div class="rank-btns">
+        <button class="rank-btn vol" onclick="loadRanking('volume')">🔥 成交量前十</button>
+        <button class="rank-btn amt" onclick="loadRanking('amount')">💰 成交额前十</button>
+        <button class="rank-btn chg" onclick="loadRanking('change')">🚀 涨幅榜前十</button>
+    </div>
+    <div class="note">* 数据由后台每3分钟自动扫描全市场生成，点击按钮即时排序（演示页为本地模拟数据）</div>
+</div>
+
+<div id="loading">正在查询新浪数据中心...</div>
+<table id="result-table"></table>
+</div>
+</div>
+
+<script>
+(function(){
+// 本地模拟股票数据（来自 stocks.csv 格式 + 模拟实时行情）
+const STOCKS = [
+    {code:"sz000001", name:"平安银行", price:11.82, close:11.50, vol:123456700, amt:1456230000},
+    {code:"sz000002", name:"万科A", price:9.34, close:9.50, vol:98765400, amt:923456000},
+    {code:"sh600519", name:"贵州茅台", price:1689.50, close:1650.01, vol:3456789, amt:5832100000},
+    {code:"sh601318", name:"中国平安", price:48.72, close:47.90, vol:56789012, amt:2765430000},
+    {code:"sz000858", name:"五粮液", price:156.30, close:160.20, vol:23456789, amt:3678900000},
+    {code:"sh600036", name:"招商银行", price:35.68, close:35.20, vol:67890123, amt:2421350000},
+    {code:"sz000333", name:"美的集团", price:68.45, close:67.80, vol:45678901, amt:3124560000},
+    {code:"sh601012", name:"隆基绿能", price:22.15, close:23.40, vol:89012345, amt:1976540000},
+    {code:"sz002594", name:"比亚迪", price:248.90, close:240.50, vol:34567890, amt:8601230000},
+    {code:"sh600276", name:"恒瑞医药", price:45.67, close:46.10, vol:23456789, amt:1072340000},
+    {code:"sz000725", name:"京东方A", price:4.32, close:4.25, vol:234567890, amt:1014560000},
+    {code:"sh601888", name:"中国中免", price:82.30, close:85.60, vol:12345678, amt:1016540000},
+];
+const now = "2025-01-10 15:00:00";
+
+function changePct(s){ return ((s.price - s.close) / s.close) * 100; }
+function fmtVol(v){ return (v/100).toLocaleString() + " 手"; }
+function fmtAmt(a){ return (a/100000000).toFixed(2) + " 亿"; }
+
+function renderTable(data, showRank){
+    const tbl = document.getElementById("result-table");
+    if (!data || data.length===0){ tbl.innerHTML = '<tr><td class="empty">暂无数据</td></tr>'; return; }
+    let html = `<tr><th>排名</th><th>股票名称</th><th>代码</th><th>当前价格</th><th>涨跌幅</th><th>成交量</th><th>成交额</th><th>更新时间</th></tr>`;
+    data.forEach((s,i)=>{
+        const chg = changePct(s);
+        const up = chg >= 0;
+        const rankCls = i===0?"rank-1":(i===1?"rank-2":(i===2?"rank-3":""));
+        html += `<tr>
+            <td class="${rankCls}">${showRank ? "#"+(i+1) : "-"}</td>
+            <td class="name">${s.name}</td>
+            <td class="code">${s.code}</td>
+            <td class="price ${up?'up':'down'}">${s.price.toFixed(2)}</td>
+            <td class="${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</td>
+            <td>${fmtVol(s.vol)}</td>
+            <td>${fmtAmt(s.amt)}</td>
+            <td class="time">${now}</td>
+        </tr>`;
+    });
+    tbl.innerHTML = html;
+}
+
+window.doSearch = function(){
+    const kw = document.getElementById("keyword").value.trim();
+    if (!kw) { renderTable(STOCKS.slice(0,10), false); return; }
+    document.getElementById("loading").style.display="block";
+    setTimeout(()=>{
+        document.getElementById("loading").style.display="none";
+        let res;
+        if (kw.startsWith("sh")||kw.startsWith("sz")) res = STOCKS.filter(s=>s.code===kw.toLowerCase());
+        else res = STOCKS.filter(s=>s.name.includes(kw));
+        if (res.length===0) { alert("未找到相关股票"); return; }
+        renderTable(res.slice(0,10), false);
+    }, 400);
+};
+
+window.loadRanking = function(type){
+    document.getElementById("loading").style.display="block";
+    setTimeout(()=>{
+        document.getElementById("loading").style.display="none";
+        let sorted = STOCKS.slice();
+        if (type==="volume") sorted.sort((a,b)=>b.vol-a.vol);
+        else if (type==="amount") sorted.sort((a,b)=>b.amt-a.amt);
+        else if (type==="change") sorted.sort((a,b)=>changePct(b)-changePct(a));
+        renderTable(sorted.slice(0,10), true);
+    }, 400);
+};
+
+// 初始展示成交量排行
+loadRanking("volume");
+})();
+</script>
+</body>
+</html>

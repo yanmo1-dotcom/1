@@ -1,0 +1,46 @@
+// ============================================================
+// desktop/build.gradle —— 桌面启动模块
+// 使用 Lwjgl3 后端（LibGDX 1.12.x 推荐的现代桌面后端）。
+// 仅包含平台启动器，所有游戏逻辑在 :core 模块。
+// ============================================================
+
+// 应用 application 插件以获得 run 任务
+apply plugin: "application"
+
+// 指定主类（Lwjgl3 启动器）
+// 【版本感知】Gradle 9.0 移除了顶层 mainClassName 属性，必须用 application 扩展块的 mainClass。
+// 旧写法（Gradle 8 及以前）: mainClassName = "..."
+// 新写法（Gradle 9.0+）: application { mainClass = "..." }
+application {
+    mainClass = "com.jackal.desktop.DesktopLauncher"
+}
+
+// application 插件的 run 任务默认工作目录并非 assets 所在地，
+// 这里把工作目录指回 core/assets，保证 Gdx.files.internal("xxx") 能正确加载资源
+run {
+    workingDir = file("../core/assets")
+    // JDK 16+ 对本地代码访问施加限制，Lwjgl3/LibGDX 加载本地库时会触发警告。
+    // 显式放开 ALL-UNNAMED 模块的本地访问权限，消除警告并避免潜在的 JNI 受限行为。
+    // 【版本感知】这是 JDK 17+ 的标准参数，LibGDX 1.12.x + Lwjgl3 3.3.x 在新 JDK 上必需。
+    jvmArgs "--enable-native-access=ALL-UNNAMED"
+    // 强制 JVM 标准输出用 UTF-8，修复中文日志在 Windows 控制台的乱码/方块。
+    // Windows 默认 GBK，与源码 UTF-8 不匹配 → 日志中文变乱码。
+    jvmArgs "-Dfile.encoding=UTF-8"
+    jvmArgs "-Dstdout.encoding=UTF-8"
+    jvmArgs "-Dstderr.encoding=UTF-8"
+    // 调试参数：开启远程调试端口，供 VS Code attach 调试
+    // 平时注释掉；需要调试时取消注释，或在 launch.json 中独立配置（见文档）
+    // jvmArgs "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
+}
+
+dependencies {
+    // 依赖核心模块
+    implementation project(":core")
+
+    // Lwjgl3 桌面后端 + 对应平台的本地库
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+
+    // FreeType 桌面本地库（运行时从 ttf 生成中文字体所需）
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+}

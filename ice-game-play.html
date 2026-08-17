@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>冰球游戏 · 点击即玩</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .play-wrap { max-width: 980px; margin: 0 auto; padding: 24px; text-align: center; }
+    canvas {
+        display: block; margin: 12px auto; border-radius: 14px;
+        background: #daf4ff; max-width: 100%; height: auto;
+        box-shadow: 0 8px 30px rgba(0,0,0,.4); cursor: none; touch-action: none;
+    }
+    .hint { color: var(--text-dim); font-size: .9rem; margin-top: 10px; }
+    .kbd {
+        display: inline-block; background: var(--bg-soft); border: 1px solid var(--border);
+        border-radius: 4px; padding: 1px 7px; font-size: .82rem; color: var(--accent); margin: 0 2px;
+    }
+</style>
+</head>
+<body>
+<div class="page play-wrap">
+<a class="back" href="index.html" style="display:inline-block;margin-bottom:18px">← 返回作品集首页</a>
+<h1>冰球游戏 Ice Game</h1>
+<p class="subtitle">移动鼠标控制蓝色球拍 · 先得 7 分获胜</p>
+<div class="meta" style="justify-content:center">
+<span>单人模式 · 对战 AI</span><span>原作：ice-game/</span><span>Canvas 重写</span>
+</div>
+
+<canvas id="rink" width="960" height="600"></canvas>
+<div class="hint">
+    <span class="kbd">鼠标</span> 或 <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> 移动球拍 ·
+    <span class="kbd">R</span> 重新开始 ·
+    <span class="kbd">Esc</span> 返回首页
+</div>
+</div>
+
+<script>
+(function(){
+    const canvas = document.getElementById("rink");
+    const ctx = canvas.getContext("2d");
+
+    // ===== 常量（来自 GameState.java）=====
+    const W = 960, H = 600;
+    const PADDLE_R = 27, PUCK_R = 17;
+    const PADDLE_X_MIN = 51, MID_X = W/2;
+    const GOAL_TOP = 205, GOAL_BOTTOM = 395;
+    const AIR_DRAG = 0.42;
+    const MIN_SPEED = 55, MAX_SPEED = 820, MIN_BOUNCE = 130;
+    const WIN_SCORE = 7;
+
+    // ===== 状态 =====
+    const s = {
+        puckX: W/2, puckY: H/2, puckVx: 330, puckVy: 0,
+        leftX: PADDLE_X_MIN+27, leftY: H/2,
+        rightX: W-PADDLE_X_MIN-27, rightY: H/2,
+        leftVx:0, leftVy:0, rightVx:0, rightVy:0,
+        leftScore:0, rightScore:0, finished:false
+    };
+    let mouseX = s.leftX, mouseY = s.leftY;
+    let useMouse = true;
+    const keys = {};
+
+    // AI 状态
+    let aiTimer = 0, aiDriftY = 0, aiDriftX = 0, aiCommittedX = s.rightX, aiCommittedY = s.rightY, aiAggro = 0;
+
+    function clampY(v){ return Math.max(40, Math.min(H-40, v)); }
+    function clampLeftX(v){ return Math.max(PADDLE_X_MIN, Math.min(MID_X-PADDLE_R-1, v)); }
+    function clampRightX(v){ return Math.max(MID_X+PADDLE_R+1, Math.min(W-PADDLE_X_MIN, v)); }
+
+    function resetPuck(dir){
+        s.puckX = W/2; s.puckY = H/2;
+        s.puckVx = dir * 330;
+        s.puckVy = (Math.random()*220) - 110;
+    }
+    function resetAll(){
+        s.leftScore = s.rightScore = 0;
+        s.leftX = PADDLE_X_MIN+27; s.rightX = W-PADDLE_X_MIN-27;
+        s.leftY = s.rightY = H/2;
+        s.leftVx=s.leftVy=s.rightVx=s.rightVy=0;
+        s.finished = false;
+        resetPuck(Math.random()<.5?-1:1);
+    }
+
+    // ===== 碰撞（来自 GameState.collide）=====
+    function collide(x, y, pvx, pvy, left){
+        const dx = s.puckX - x, dy = s.puckY - y;
+        const min = PADDLE_R + PUCK_R;
+        const d2 = dx*dx + dy*dy;
+        if (d2 >= min*min || d2 === 0) return;
+        const relVx = s.puckVx - pvx, relVy = s.puckVy - pvy;
+        if (relVx*dx + relVy*dy >= 0) return;
+        const dist = Math.sqrt(d2), nx = dx/dist, ny = dy/dist;
+        s.puckX = x + nx*min;
+        s.puckY = y + ny*min;
+        const incoming = Math.hypot(s.puckVx, s.puckVy);
+        const edge = Math.abs(ny);
+        const paddleSpd = Math.hypot(pvx, pvy);
+        let speed = incoming*(0.78 + 0.34*(1-edge)) + paddleSpd*0.45 + MIN_BOUNCE*(0.4 + 0.6*edge);
+        speed = Math.min(MAX_SPEED, speed);
+        s.puckVx = nx*speed;
+        s.puckVy = ny*speed + pvy*0.35;
+        if (left) s.puckVx = Math.abs(s.puckVx); else s.puckVx = -Math.abs(s.puckVx);
+    }
+
+    function update(dt){
+        if (s.finished) return;
+
+        // 玩家球拍（鼠标/键盘）
+        const ky = (keys["s"]||keys["arrowdown"]?1:0) - (keys["w"]||keys["arrowup"]?1:0);
+        const kx = (keys["d"]||keys["arrowright"]?1:0) - (keys["a"]||keys["arrowleft"]?1:0);
+        if (ky || kx){ useMouse = false; }
+        if (!useMouse){
+            mouseX += kx * 560 * dt;
+            mouseY += ky * 560 * dt;
+        }
+        const tx = clampLeftX(mouseX), ty = clampY(mouseY);
+        const prevX = s.leftX, prevY = s.leftY;
+        s.leftX += Math.max(-720*dt, Math.min(720*dt, tx - s.leftX));
+        s.leftY += Math.max(-720*dt, Math.min(720*dt, ty - s.leftY));
+        s.leftX = clampLeftX(s.leftX); s.leftY = clampY(s.leftY);
+        s.leftVx = (s.leftX - prevX)/dt;
+        s.leftVy = (s.leftY - prevY)/dt;
+
+        // AI（来自 GamePanel.updateAi）
+        updateAi(dt);
+
+        // 球
+        s.puckX += s.puckVx*dt;
+        s.puckY += s.puckVy*dt;
+        const drag = Math.exp(-AIR_DRAG*dt);
+        s.puckVx *= drag; s.puckVy *= drag;
+        const spd = Math.hypot(s.puckVx, s.puckVy);
+        if (spd < MIN_SPEED && spd > 0.01){
+            const k = MIN_SPEED/spd;
+            s.puckVx *= k; s.puckVy *= k;
+        }
+        if (s.puckY - PUCK_R < 24){ s.puckY = 24+PUCK_R; s.puckVy = Math.abs(s.puckVy)*0.92; }
+        if (s.puckY + PUCK_R > H-24){ s.puckY = H-24-PUCK_R; s.puckVy = -Math.abs(s.puckVy)*0.92; }
+        const inGoal = s.puckY > GOAL_TOP+PUCK_R && s.puckY < GOAL_BOTTOM-PUCK_R;
+        if (!inGoal && s.puckX - PUCK_R < 24){ s.puckX = 24+PUCK_R; s.puckVx = Math.abs(s.puckVx)*0.92; }
+        if (!inGoal && s.puckX + PUCK_R > W-24){ s.puckX = W-24-PUCK_R; s.puckVx = -Math.abs(s.puckVx)*0.92; }
+
+        collide(s.leftX, s.leftY, s.leftVx, s.leftVy, true);
+        collide(s.rightX, s.rightY, s.rightVx, s.rightVy, false);
+
+        if (s.puckX < -PUCK_R) score(false);
+        else if (s.puckX > W+PUCK_R) score(true);
+    }
+
+    function updateAi(dt){
+        aiTimer -= dt;
+        const puckSpd = Math.hypot(s.puckVx, s.puckVy);
+        const attacking = s.puckVx > 0 && s.puckX > W*0.32;
+        const deadBall = s.puckX > MID_X+20 && puckSpd < 120;
+        if (aiTimer <= 0){
+            const reactionDelay = deadBall ? 0.06+Math.random()*0.08 : 0.10+Math.random()*0.14;
+            aiTimer = reactionDelay;
+            const errorScale = attacking ? 42 : 26;
+            aiDriftY = (Math.random()-0.5)*errorScale;
+            aiDriftX = (Math.random()-0.5)*errorScale*0.6;
+            if (deadBall){
+                aiAggro = Math.random()<0.6?1:0.5;
+                aiCommittedX = clampRightX(s.puckX + 44 + aiDriftX);
+                const aimOffset = (s.puckY < H/2?1:-1)*PADDLE_R*0.8;
+                aiCommittedY = clampY(s.puckY + aimOffset + aiDriftY);
+            } else if (attacking){
+                aiAggro = Math.random()<0.72?1:0.35;
+                const t = (s.puckX - s.rightX)/Math.max(1, s.puckVx);
+                const interceptY = s.puckY + s.puckVy*Math.max(0, Math.min(0.32, t));
+                const aimOffset = (interceptY < H/2?1:-1)*PADDLE_R*0.9;
+                aiCommittedY = clampY(interceptY + aimOffset + aiDriftY);
+                aiCommittedX = clampRightX(s.puckX + (aiAggro>0.5?44:78) + aiDriftX);
+            } else if (s.puckX > MID_X && s.puckVx >= -10){
+                aiAggro = 0.4;
+                aiCommittedX = clampRightX(s.puckX + 70 + aiDriftX);
+                aiCommittedY = s.puckY + aiDriftY;
+            } else {
+                aiAggro = 0.2;
+                aiCommittedX = W - PADDLE_X_MIN - 27;
+                aiCommittedY = s.puckY*0.4 + H/2*0.6 + aiDriftY*0.5;
+            }
+        }
+        const baseSpeed = 380 + aiAggro*180;
+        const jitter = 1 + (Math.random()-0.5)*0.12;
+        const speed = baseSpeed*jitter;
+        const prevX = s.rightX, prevY = s.rightY;
+        s.rightX += Math.max(-speed*dt, Math.min(speed*dt, aiCommittedX - s.rightX));
+        s.rightY += Math.max(-speed*dt, Math.min(speed*dt, aiCommittedY - s.rightY));
+        s.rightX = clampRightX(s.rightX); s.rightY = clampY(s.rightY);
+        s.rightVx = (s.rightX - prevX)/dt;
+        s.rightVy = (s.rightY - prevY)/dt;
+    }
+
+    function score(leftWonPoint){
+        if (leftWonPoint) s.leftScore++; else s.rightScore++;
+        s.finished = s.leftScore >= WIN_SCORE || s.rightScore >= WIN_SCORE;
+        if (!s.finished) resetPuck(leftWonPoint ? -1 : 1);
+    }
+
+    // ===== 渲染（来自 GamePanel.paintRink）=====
+    function draw(){
+        ctx.clearRect(0,0,W,H);
+        // 冰面
+        ctx.fillStyle = "#effbff";
+        roundRect(18,18,924,564,95); ctx.fill();
+        ctx.lineWidth = 5; ctx.strokeStyle = "#277dae";
+        roundRect(20,20,920,560,90); ctx.stroke();
+        ctx.lineWidth = 3; ctx.strokeStyle = "rgba(223,55,64,0.63)";
+        ctx.beginPath(); ctx.moveTo(480,25); ctx.lineTo(480,575); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(480,300,85,85,0,0,Math.PI*2); ctx.stroke();
+        ctx.strokeStyle = "rgba(30,108,178,0.47)";
+        ctx.beginPath(); ctx.moveTo(255,25); ctx.lineTo(255,575); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(705,25); ctx.lineTo(705,575); ctx.stroke();
+        ctx.lineWidth = 9; ctx.strokeStyle = "#e13741";
+        ctx.beginPath(); ctx.moveTo(21,GOAL_TOP); ctx.lineTo(21,GOAL_BOTTOM); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(939,GOAL_TOP); ctx.lineTo(939,GOAL_BOTTOM); ctx.stroke();
+
+        // 球拍
+        paddle(s.leftX, s.leftY, "#1470be");
+        paddle(s.rightX, s.rightY, "#e0373e");
+        // 球
+        ctx.fillStyle = "#161e27";
+        ctx.beginPath(); ctx.arc(s.puckX, s.puckY, PUCK_R, 0, Math.PI*2); ctx.fill();
+
+        // 比分
+        ctx.font = "bold 44px SansSerif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#1470be"; ctx.fillText(s.leftScore, 420, 68);
+        ctx.fillStyle = "#e0373e"; ctx.fillText(s.rightScore, 540, 68);
+        ctx.font = "bold 16px SansSerif"; ctx.fillStyle = "#11354c";
+        ctx.fillText("单人模式 · 你是蓝队", 480, 565);
+
+        if (s.finished){
+            ctx.fillStyle = "rgba(5,25,42,0.82)";
+            roundRect(250,205,460,190,28); ctx.fill();
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 38px SansSerif";
+            ctx.fillText(s.leftScore > s.rightScore ? "你赢了！" : "AI 获胜", 480, 278);
+            ctx.font = "18px SansSerif";
+            ctx.fillText("按 R 再来一局 · Esc 返回首页", 480, 337);
+        }
+        ctx.textAlign = "left";
+    }
+
+    function paddle(x,y,color){
+        ctx.fillStyle = "rgba(0,0,0,0.14)";
+        ctx.beginPath(); ctx.ellipse(x-31+31, y-24+28, 31, 28, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(x, y+4, 31, 24, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(x, y, PADDLE_R, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.43)";
+        ctx.beginPath(); ctx.ellipse(x-4, y-6, 10, 6, 0, 0, Math.PI*2); ctx.fill();
+    }
+    function roundRect(x,y,w,h,r){
+        ctx.beginPath();
+        ctx.moveTo(x+r,y);
+        ctx.arcTo(x+w,y,x+w,y+h,r);
+        ctx.arcTo(x+w,y+h,x,y+h,r);
+        ctx.arcTo(x,y+h,x,y,r);
+        ctx.arcTo(x,y,x+w,y,r);
+        ctx.closePath();
+    }
+
+    // ===== 输入 =====
+    canvas.addEventListener("mousemove", e => {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+        mouseX = (e.clientX - rect.left)*sx;
+        mouseY = (e.clientY - rect.top)*sy;
+        useMouse = true;
+    });
+    canvas.addEventListener("touchmove", e => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+        const t = e.touches[0];
+        mouseX = (t.clientX - rect.left)*sx;
+        mouseY = (t.clientY - rect.top)*sy;
+        useMouse = true;
+    }, {passive:false});
+
+    window.addEventListener("keydown", e => {
+        const k = e.key.toLowerCase();
+        keys[k] = true;
+        if (k === "r"){ resetAll(); }
+        if (k === "escape"){ window.location.href = "index.html"; }
+        if (["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) e.preventDefault();
+    });
+    window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
+
+    // ===== 主循环 =====
+    let last = performance.now();
+    function loop(now){
+        const dt = Math.max(0.001, Math.min(0.033, (now-last)/1000));
+        last = now;
+        update(dt);
+        draw();
+        requestAnimationFrame(loop);
+    }
+    resetAll();
+    requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

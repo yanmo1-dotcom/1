@@ -1,0 +1,118 @@
+{
+  "cards": [
+    {
+      "id": "STRIKE",
+      "name": "打击",
+      "cost": 1,
+      "rarity": "BASIC",
+      "type": "ATTACK",
+      "target": "SINGLE",
+      "description": "造成6点伤害。",
+      "effects": [
+        { "type": "DAMAGE", "amount": 6 }
+      ]
+    },
+    {
+      "id": "DEFEND",
+      "name": "防御",
+      "cost": 1,
+      "rarity": "BASIC",
+      "type": "SKILL",
+      "target": "SELF",
+      "description": "获得5点格挡。",
+      "effects": [
+        { "type": "BLOCK", "amount": 5 }
+      ]
+    },
+    {
+      "id": "BASH",
+      "name": "痛击",
+      "cost": 2,
+      "rarity": "COMMON",
+      "type": "ATTACK",
+      "target": "SINGLE",
+      "effects": [
+        { "type": "DAMAGE", "amount": 8 },
+        { "type": "APPLY_STATUS", "statusId": "VULNERABLE", "amount": 2, "toSelf": false }
+      ]
+    },
+    {
+      "id": "CLEAVE",
+      "name": "顺劈斩",
+      "cost": 1,
+      "rarity": "COMMON",
+      "type": "ATTACK",
+      "target": "ALL_ENEMIES",
+      "effects": [
+        { "type": "DAMAGE", "amount": 8 }
+      ]
+    },
+    {
+      "id": "POMMEL_STRIKE",
+      "name": "剑柄打击",
+      "cost": 1,
+      "rarity": "UNCOMMON",
+      "type": "ATTACK",
+      "target": "SINGLE",
+      "effects": [
+        { "type": "DAMAGE", "amount": 9 },
+        { "type": "DRAW", "amount": 1 }
+      ]
+    },
+    {
+      "id": "IRON_WAVE",
+      "name": "铁浪",
+      "cost": 1,
+      "rarity": "COMMON",
+      "type": "ATTACK",
+      "target": "SINGLE",
+      "effects": [
+        { "type": "DAMAGE", "amount": 5 },
+        { "type": "BLOCK", "amount": 5 }
+      ]
+    },
+    {
+      "id": "SHRUG_IT_OFF",
+      "name": "耸肩防御",
+      "cost": 1,
+      "rarity": "COMMON",
+      "type": "SKILL",
+      "target": "SELF",
+      "effects": [
+        { "type": "BLOCK", "amount": 8 },
+        { "type": "DRAW", "amount": 1 }
+      ]
+    },
+    {
+      "id": "DEMON_FORM",
+      "name": "恶魔形态",
+      "cost": 3,
+      "rarity": "RARE",
+      "type": "POWER",
+      "target": "SELF",
+      "effects": [
+        { "type": "APPLY_STATUS", "statusId": "STRENGTH", "amount": 2, "toSelf": true }
+      ]
+    },
+    {
+      "id": "QUICK_STRIKE",
+      "name": "迅捷打击",
+      "cost": 1,
+      "rarity": "COMMON",
+      "type": "ATTACK",
+      "target": "SINGLE",
+      "description": "造成5点伤害。扁平字段示例（无 effects 数组）。",
+      "damage": 5
+    },
+    {
+      "id": "BARRIER",
+      "name": "屏障",
+      "cost": 0,
+      "rarity": "COMMON",
+      "type": "SKILL",
+      "target": "SELF",
+      "description": "获得3点格挡。扁平字段示例。",
+      "block": 3
+    }
+  ]
+}

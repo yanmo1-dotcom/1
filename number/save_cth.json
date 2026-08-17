@@ -1,0 +1,16 @@
+{
+  "username": "cth",
+  "assword": "123",
+  "otalGames": 0,
+  "ins": 0,
+  "estGuesses": 2147483647,
+  "otalGuesses": 0,
+  "uessHistory": [],
+  "astPlayTime": "2026-07-17T17:45:57.557588500",
+  "totalGames": 1,
+  "wins": 1,
+  "bestGuesses": 7,
+  "totalGuesses": 7,
+  "guessHistory": ["Game#1: Win in 7 tries"],
+  "lastPlayTime": "2026-07-17T17:46:38.365215300"
+}

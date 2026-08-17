@@ -1,0 +1,34 @@
+# ===== 忽略 Gradle 构建产物 =====
+build/
+bin/
+.gradle/
+out/
+*.class
+
+# ===== Gradle Wrapper jar（由 gradle wrapper 命令生成，不入库） =====
+# 注：实际项目中通常会把 gradle-wrapper.jar 提交入库以便团队复用，
+# 但由于它二进制且需由 wrapper 任务生成，此处先忽略，生成后再决定。
+gradle/wrapper/gradle-wrapper.jar
+
+# ===== 临时下载的 Gradle 发行版（离线环境下用 file:// 指向） =====
+.gradle-dists/
+
+# ===== IDE 临时文件 =====
+.idea/
+*.iml
+.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+
+# ===== VS Code Java 扩展自动生成的辅助文件 =====
+.github/modernize/
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+
+# ===== LibGDX 运行时产物 =====
+# Lwjgl3 启动时可能生成的日志/截图
+*.log
+hs_err_pid*

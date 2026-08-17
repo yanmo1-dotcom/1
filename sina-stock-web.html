@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A 股实时行情 Sina Stock · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.play-link{display:inline-block;margin:18px 0;padding:12px 28px;border-radius:10px;background:var(--green);color:#0f1220;font-weight:700;font-size:1.05rem;text-decoration:none}.play-link:hover{filter:brightness(1.1);text-decoration:none}</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<a class="play-link" href="sina-stock-play.html">▶ 点击进入在线演示</a>
+<h1>A 股实时行情 Sina Stock Web</h1>
+<p class="subtitle">抓取新浪财经接口的 A 股实时行情网站</p>
+<div class="meta">
+<span>类型：Web 应用</span><span>技术：Spring Boot · 新浪接口 · HTML</span><span>构建：Maven</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一个股票行情网站。后端用 Spring Boot 调用新浪财经的实时行情接口，把 A 股数据展示在网页上，支持搜索股票代码查看实时行情。</p>
+
+<h2>主要类与文件</h2>
+<ul>
+<li><strong>SinaStockWebApplication</strong>：Spring Boot 启动类</li>
+<li><strong>controller/StockController</strong>：股票查询的 Web 接口控制器</li>
+<li><strong>StockMarketService</strong>：行情业务逻辑</li>
+<li><strong>util/SinaStockUtil</strong>：调用新浪财经接口的工具类</li>
+<li><strong>StockInfo</strong>：股票信息数据模型</li>
+<li><strong>stock.html</strong>：前端页面（A股实时行情中心，带搜索栏）</li>
+<li><strong>stocks.csv</strong>：股票代码列表数据</li>
+</ul>
+
+<h2>运行方式</h2>
+<p>在 <code>sina-stock-web/</code> 目录下启动 Spring Boot：</p>
+<div class="run"><code>mvn spring-boot:run<br># 浏览器打开 http://localhost:8080</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>sina-stock-web/</code> 目录。</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+// ============================================================
+// core/build.gradle —— 核心游戏逻辑模块
+// 此模块仅依赖 LibGDX 核心，不含任何平台特定代码。
+// 桌面/移动/Web 各平台均依赖本模块，保证逻辑复用。
+// ============================================================
+
+// 使用 java-library 插件（而非 java），以获得 api 配置项，
+// 使 gdx 依赖可传递暴露给依赖本模块的 desktop 等平台模块。
+apply plugin: "java-library"
+
+dependencies {
+    // LibGDX 核心库（gdx-core），包含 Application、Game、Scene2D、Graphics 等基础 API
+    api "com.badlogicgames.gdx:gdx:$gdxVersion"
+
+    // FreeType 字体生成：运行时从 ttf 生成 BitmapFont，支持中文（第 9 步后引入）
+    // 解决默认 BitmapFont 不含中文字形导致 HUD 显示方块的问题
+    api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+}
+
+// 资源目录：LibGDX 约定 assets 放在 core/assets，由各平台启动器复制到运行目录
+sourceSets.main.resources.srcDirs += ["assets"]

@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奇斯要塞 · 点击即玩</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .play-wrap { max-width: 760px; margin: 0 auto; padding: 16px; text-align: center; }
+    canvas {
+        display: block; margin: 10px auto; border-radius: 8px;
+        background: #000; max-width: 100%; height: auto;
+        box-shadow: 0 8px 30px rgba(0,0,0,.5); cursor: crosshair; touch-action: none;
+        image-rendering: pixelated;
+    }
+    .hint { color: var(--text-dim); font-size: .84rem; margin-top: 8px; line-height: 1.8; }
+    .kbd { display:inline-block; background:var(--bg-soft); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:.8rem; color:var(--accent); margin:0 1px; }
+</style>
+</head>
+<body>
+<div class="page play-wrap">
+<a class="back" href="index.html" style="display:inline-block;margin-bottom:10px">← 返回作品集首页</a>
+<h1>奇斯要塞 Chise Yaosai</h1>
+<p class="subtitle">2D 策略射击 · 救出所有战俘 · 击败 Boss 通关</p>
+<div class="meta" style="justify-content:center">
+<span>Canvas 重写</span><span>原作：chise-yaosai/</span><span>2 关</span>
+</div>
+<canvas id="game" width="512" height="480"></canvas>
+<div class="hint">
+    <span class="kbd">WASD</span> 移动 ·
+    <span class="kbd">鼠标</span> 瞄准 ·
+    <span class="kbd">左键</span> 开火 ·
+    <span class="kbd">空格</span> 切武器 ·
+    <span class="kbd">E</span> 救援战俘 ·
+    <span class="kbd">R</span> 通关后重玩 ·
+    <span class="kbd">Esc</span> 退出
+</div>
+</div>
+
+<script>
+(function(){
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const VW = 512, VH = 480;
+const TILE = 32;
+
+// ===== 工具 =====
+const rand = (a,b)=>a+Math.random()*(b-a);
+const rint = n=>Math.floor(Math.random()*n);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp = (a,b,t)=>a+(b-a)*t;
+function lerpAngle(a,b,t){
+    let d = b-a;
+    while(d>Math.PI) d-=Math.PI*2;
+    while(d<-Math.PI) d+=Math.PI*2;
+    return a + d*t;
+}
+function rectOverlap(ax,ay,aw,ah,bx,by,bw,bh){
+    return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+
+// ===== 程序化生成地图（2关）=====
+// 碰撞层：1=实心墙，0=空。地图尺寸关卡内固定。
+function makeLevel(level){
+    // 关卡 16x15 瓦片 = 512x480
+    const W = 16, H = 15;
+    const col = [];
+    for (let y=0;y<H;y++){ col.push(new Array(W).fill(0)); }
+    // 外围墙
+    for (let x=0;x<W;x++){ col[0][x]=1; col[H-1][x]=1; }
+    for (let y=0;y<H;y++){ col[y][0]=1; col[y][W-1]=1; }
+    // 内部障碍：关卡1 较稀疏，关卡2 更密集
+    const seed = level===1 ? [
+        [3,3],[3,4],[4,3],
+        [11,3],[12,3],[12,4],
+        [3,10],[3,11],[4,11],
+        [11,11],[12,10],[12,11],
+        [7,7],[8,7],[7,8],[8,8],
+        [6,4],[9,4],[6,10],[9,10],
+    ] : [
+        [2,3],[3,3],[4,3],[4,4],
+        [11,3],[12,3],[13,3],[11,4],
+        [2,10],[3,11],[3,10],[4,11],
+        [11,11],[12,10],[13,11],[12,11],
+        [7,5],[8,5],[7,6],[8,6],
+        [7,9],[8,9],[7,10],[8,10],
+        [5,7],[6,7],[9,7],[10,7],
+        [7,3],[8,3],[7,11],[8,11],
+    ];
+    for (const [x,y] of seed){ if(x<W-1&&y<H-1) col[y][x]=1; }
+    const mapW = W*TILE, mapH = H*TILE;
+    // 坦克巡逻路径
+    const tankPath = level===1
+        ? [{x:mapW*0.25,y:mapH*0.7},{x:mapW*0.75,y:mapH*0.7}]
+        : [{x:mapW*0.3,y:mapH*0.3},{x:mapW*0.7,y:mapH*0.3},{x:mapW*0.7,y:mapH*0.75},{x:mapW*0.3,y:mapH*0.75}];
+    return { col, W, H, mapW, mapH, tankPath };
+}
+
+// ===== 地图碰撞 =====
+function isSolidPixel(col, mapW, mapH, px, py){
+    if (px<0||py<0||px>=mapW||py>=mapH) return true;
+    const tx = Math.floor(px/TILE), ty = Math.floor(py/TILE);
+    return col[ty][tx] === 1;
+}
+// 分轴碰撞：box={x,y,w,h} 左上角+w/h
+function resolveCollision(col, mapW, mapH, box, dx, dy){
+    // X
+    box.x += dx;
+    if (dx>0){
+        const right = box.x+box.w;
+        const ty0=Math.floor(box.y/TILE), ty1=Math.floor((box.y+box.h-1)/TILE);
+        const tx=Math.floor((right-1)/TILE);
+        for (let ty=ty0;ty<=ty1;ty++){
+            if (col[ty] && col[ty][tx]===1){ box.x = tx*TILE - box.w; break; }
+        }
+    } else if (dx<0){
+        const ty0=Math.floor(box.y/TILE), ty1=Math.floor((box.y+box.h-1)/TILE);
+        const tx=Math.floor(box.x/TILE);
+        for (let ty=ty0;ty<=ty1;ty++){
+            if (col[ty] && col[ty][tx]===1){ box.x = (tx+1)*TILE; break; }
+        }
+    }
+    // Y
+    box.y += dy;
+    if (dy>0){
+        const bottom = box.y+box.h;
+        const tx0=Math.floor(box.x/TILE), tx1=Math.floor((box.x+box.w-1)/TILE);
+        const ty=Math.floor((bottom-1)/TILE);
+        for (let tx=tx0;tx<=tx1;tx++){
+            if (col[ty] && col[ty][tx]===1){ box.y = ty*TILE - box.h; break; }
+        }
+    } else if (dy<0){
+        const tx0=Math.floor(box.x/TILE), tx1=Math.floor((box.x+box.w-1)/TILE);
+        const ty=Math.floor(box.y/TILE);
+        for (let tx=tx0;tx<=tx1;tx++){
+            if (col[ty] && col[ty][tx]===1){ box.y = (ty+1)*TILE; break; }
+        }
+    }
+}
+
+// ===== 玩家 Jeep =====
+function makePlayer(mapW, mapH){
+    return {
+        x: mapW*0.5, y: mapH*0.5, // 中心
+        vx:0, vy:0, bodyAngle:0, turretAngle:0,
+        hp:3, maxHp:3, hurtInvuln:0, dead:false,
+        HALF_W:14, HALF_H:10,
+    };
+}
+function updatePlayer(p, dt, input){
+    if (p.dead) return;
+    const ax = (input.right?1:0)-(input.left?1:0);
+    const ay = (input.down?1:0)-(input.up?1:0);
+    let dirx=0, diry=0;
+    if (ax||ay){ const len=Math.hypot(ax,ay); dirx=ax/len; diry=ay/len; }
+    const ACCEL=900, MAX=220, FRICTION=8;
+    p.vx += dirx*ACCEL*dt;
+    p.vy += diry*ACCEL*dt;
+    const sp = Math.hypot(p.vx,p.vy);
+    if (sp>MAX){ p.vx=p.vx/sp*MAX; p.vy=p.vy/sp*MAX; }
+    if (!ax&&!ay){
+        const f = 1-FRICTION*dt;
+        p.vx*=f; p.vy*=f;
+        if (Math.hypot(p.vx,p.vy)<5){ p.vx=0; p.vy=0; }
+    }
+    if (ax||ay){ p.bodyAngle = lerpAngle(p.bodyAngle, Math.atan2(diry,dirx), Math.min(1,10*dt)); }
+    if (p.hurtInvuln>0) p.hurtInvuln-=dt;
+}
+function movePlayerWithCollision(p, col, mapW, mapH, dt){
+    const box = {x:p.x-p.HALF_W, y:p.y-p.HALF_H, w:p.HALF_W*2, h:p.HALF_H*2};
+    resolveCollision(col, mapW, mapH, box, p.vx*dt, 0);
+    resolveCollision(col, mapW, mapH, box, 0, p.vy*dt);
+    p.x = box.x + p.HALF_W;
+    p.y = box.y + p.HALF_H;
+}
+function playerBounds(p){
+    return {x:p.x-p.HALF_W, y:p.y-p.HALF_H, w:p.HALF_W*2, h:p.HALF_H*2};
+}
+
+// ===== 武器系统 =====
+const WEAPONS = [
+    { name:"机枪", cd:0.15, dmg:8, speed:600, life:1.2, r:2.5, color:"#f1c40f", type:"MG", pierce:false },
+    { name:"手雷", cd:1.2, dmg:45, speed:260, life:2.0, r:4, color:"#2ecc71", type:"GRENADE", pierce:false },
+    { name:"火箭弹", cd:0.8, dmg:60, speed:480, life:2.0, r:4.5, color:"#e67e22", type:"ROCKET", pierce:true },
+];
+function makeWeaponSystem(){
+    return { unlocked:0, current:0, cdTimer:0 };
+}
+function fireWeapon(ws, p, bullets){
+    const w = WEAPONS[ws.current];
+    const muzzleX = p.x + Math.cos(p.turretAngle)*16;
+    const muzzleY = p.y + Math.sin(p.turretAngle)*16;
+    if (w.type==="GRENADE"){
+        bullets.push({
+            x:muzzleX, y:muzzleY, vx:Math.cos(p.turretAngle)*w.speed, vy:Math.sin(p.turretAngle)*w.speed,
+            z:0, vz:320, g:900, airTime:0, r:w.r, dmg:w.dmg, type:"GRENADE", color:w.color, dead:false
+        });
+    } else {
+        bullets.push({
+            x:muzzleX, y:muzzleY, vx:Math.cos(p.turretAngle)*w.speed, vy:Math.sin(p.turretAngle)*w.speed,
+            life:w.life, r:w.r, dmg:w.dmg, type:w.type, color:w.color, pierce:w.pierce, dead:false
+        });
+    }
+    ws.cdTimer = w.cd;
+}
+function updateBullets(bullets, col, mapW, mapH, dt){
+    for (const b of bullets){
+        if (b.type==="GRENADE"){
+            b.x += b.vx*dt; b.y += b.vy*dt;
+            b.airTime += dt;
+            b.z = b.vz*b.airTime - 0.5*b.g*b.airTime*b.airTime;
+            if (b.z <= 0 && b.airTime > 0){ b.z=0; b.dead=true; } // 落地爆炸
+        } else {
+            b.x += b.vx*dt; b.y += b.vy*dt;
+            b.life -= dt;
+            if (b.life<=0) b.dead=true;
+        }
+        if (b.x<0||b.y<0||b.x>=mapW||b.y>=mapH){ b.dead=true; continue; }
+        if (!b.dead && isSolidPixel(col, mapW, mapH, b.x, b.y)){ b.dead=true; }
+    }
+    for (let i=bullets.length-1;i>=0;i--) if (bullets[i].dead) bullets.splice(i,1);
+}
+
+// ===== 敌人子弹 =====
+const ENEMY_BULLET_SPEED = 280, ENEMY_BULLET_DMG = 1.0, ENEMY_BULLET_R = 3;
+function spawnEnemyBullet(x,y,angle, enemyBullets){
+    enemyBullets.push({x,y,vx:Math.cos(angle)*ENEMY_BULLET_SPEED,vy:Math.sin(angle)*ENEMY_BULLET_SPEED,life:2.5,r:ENEMY_BULLET_DMG>0?3:3,dmg:ENEMY_BULLET_DMG,dead:false});
+}
+function updateEnemyBullets(arr, col, mapW, mapH, dt){
+    for (const b of arr){
+        b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+        if (b.life<=0||b.x<0||b.y<0||b.x>=mapW||b.y>=mapH) b.dead=true;
+        else if (isSolidPixel(col,mapW,mapH,b.x,b.y)) b.dead=true;
+    }
+    for (let i=arr.length-1;i>=0;i--) if (arr[i].dead) arr.splice(i,1);
+}
+
+// ===== 敌人 =====
+function makeEnemy(kind, x, y, opts={}){
+    const base = { x, y, state:"PATROL", hitInvuln:0, dead:false, kind };
+    if (kind==="INFANTRY"){
+        return Object.assign(base, { hp:1, maxHp:1, speed:90, r:6, contact:0.5, range:280, drift: rand(0,Math.PI*2) });
+    }
+    if (kind==="TANK"){
+        return Object.assign(base, { hp:3, maxHp:3, patrolSpeed:50, chaseSpeed:45, r:12, contact:1.0, range:280, loseRange:360, fireCd:0, fireInterval:1.8, waypoints:opts.path||[], wpIndex:0, fireRange:320 });
+    }
+    if (kind==="TURRET"){
+        return Object.assign(base, { hp:2, maxHp:2, speed:0, r:11, contact:0.5, range:300, viewHalf:Math.PI/4, fireCd:0, fireInterval:1.4, baseFacing:opts.facing||0, scanSpeed:1.2, scanRange:Math.PI*0.6, scanDir:1 });
+    }
+    if (kind==="GUARD"){
+        return Object.assign(base, { hp:2, maxHp:2, speed:2, r:6, contact:0.5, guardAngle:rand(0,Math.PI*2), guardR: 80+rint(30) });
+    }
+    return base;
+}
+function enemyBounds(e){ return {x:e.x-e.r, y:e.y-e.r, w:e.r*2, h:e.r*2}; }
+
+function updateEnemy(e, dt, p, col, mapW, mapH, enemyBullets){
+    if (e.dead) return;
+    if (e.hitInvuln>0) e.hitInvuln-=dt;
+    const distToPlayer = Math.hypot(p.x-e.x, p.y-e.y);
+
+    if (e.kind==="INFANTRY"){
+        if (distToPlayer < e.range){
+            e.state = "ATTACK";
+        }
+        if (e.state==="ATTACK" && !p.dead){
+            const offX = Math.cos(e.drift)*40, offY = Math.sin(e.drift)*40;
+            const tx = p.x+offX, ty = p.y+offY;
+            let ang = Math.atan2(ty-e.y, tx-e.x);
+            // 避障探测
+            const ahead = 18;
+            const px = e.x+Math.cos(ang)*ahead, py = e.y+Math.sin(ang)*ahead;
+            if (isSolidPixel(col,mapW,mapH,px,py)){
+                const left = ang - Math.PI/4;
+                const lpx = e.x+Math.cos(left)*ahead, lpy = e.y+Math.sin(left)*ahead;
+                if (!isSolidPixel(col,mapW,mapH,lpx,lpy)) ang = left;
+                else {
+                    const right = ang + Math.PI/4;
+                    const rpx = e.x+Math.cos(right)*ahead, rpy = e.y+Math.sin(right)*ahead;
+                    if (!isSolidPixel(col,mapW,mapH,rpx,rpy)) ang = right;
+                }
+            }
+            e.x += Math.cos(ang)*e.speed*dt;
+            e.y += Math.sin(ang)*e.speed*dt;
+        }
+    }
+    else if (e.kind==="TANK"){
+        if (e.state!=="ATTACK" && distToPlayer < e.range) e.state="ATTACK";
+        if (e.state==="ATTACK" && distToPlayer > e.loseRange) e.state="PATROL";
+        if (e.state==="PATROL"){
+            if (e.waypoints.length>0){
+                const wp = e.waypoints[e.wpIndex];
+                const d = Math.hypot(wp.x-e.x, wp.y-e.y);
+                if (d < 8){ e.wpIndex = (e.wpIndex+1)%e.waypoints.length; }
+                else {
+                    const ang = Math.atan2(wp.y-e.y, wp.x-e.x);
+                    e.x += Math.cos(ang)*e.patrolSpeed*dt;
+                    e.y += Math.sin(ang)*e.patrolSpeed*dt;
+                }
+            }
+        } else if (!p.dead){
+            const ang = Math.atan2(p.y-e.y, p.x-e.x);
+            if (distToPlayer > 120){
+                e.x += Math.cos(ang)*e.chaseSpeed*dt;
+                e.y += Math.sin(ang)*e.chaseSpeed*dt;
+            }
+            e.fireCd -= dt;
+            if (distToPlayer <= e.fireRange && e.fireCd<=0){
+                e.fireCd = e.fireInterval;
+                const mx = e.x+Math.cos(ang)*(e.r+4), my = e.y+Math.sin(ang)*(e.r+4);
+                spawnEnemyBullet(mx,my,ang, enemyBullets);
+            }
+        }
+    }
+    else if (e.kind==="TURRET"){
+        // 扫描
+        let cur = e.baseFacing + Math.sin(0)*1; // placeholder
+        // 用相位累积
+        e._scanPhase = (e._scanPhase||0) + e.scanSpeed*e.scanDir*dt;
+        if (e._scanPhase > e.scanRange){ e._scanPhase=e.scanRange; e.scanDir=-1; }
+        if (e._scanPhase < -e.scanRange){ e._scanPhase=-e.scanRange; e.scanDir=1; }
+        const facing = e.baseFacing + e._scanPhase;
+        e.facing = facing;
+        // 检测玩家
+        let detected = false;
+        if (distToPlayer <= e.range){
+            const angToP = Math.atan2(p.y-e.y, p.x-e.x);
+            let da = angToP - facing;
+            while(da>Math.PI) da-=Math.PI*2; while(da<-Math.PI) da+=Math.PI*2;
+            if (Math.abs(da) <= e.viewHalf) detected = true;
+        }
+        if (detected && !p.dead){
+            e.state = "ATTACK";
+            // 预判射击
+            e.fireCd -= dt;
+            if (e.fireCd<=0){
+                e.fireCd = e.fireInterval;
+                // 简化：朝玩家当前位置射击
+                const ang = Math.atan2(p.y-e.y, p.x-e.x);
+                const mx = e.x+Math.cos(ang)*(e.r+4), my = e.y+Math.sin(ang)*(e.r+4);
+                spawnEnemyBullet(mx,my,ang, enemyBullets);
+            }
+        } else {
+            e.state = "PATROL";
+        }
+    }
+}
+
+// ===== Boss =====
+function makeBoss(mapW, mapH){
+    return {
+        x: mapW+100, y: mapH*0.65, halfW:85, halfH:45,
+        hp:50, maxHp:50, phase:"ENTERING", enterTargetX: mapW*0.7,
+        leftBound: mapW*0.35, rightBound: mapW-30,
+        dirX:-1, fireCd:0, spinAngle:0, defeated:false,
+        summonedPhase2:false, laser:null,
+    };
+}
+function bossBounds(b){ return {x:b.x-b.halfW, y:b.y-b.halfH, w:b.halfW*2, h:b.halfH*2}; }
+function bossContactDmg(b){ return b.phase==="PHASE_3" ? 3.0 : 1.5; }
+
+function updateBoss(b, dt, p, bossBullets, enemyList, mapW, mapH, shakeCb){
+    if (b.defeated) return;
+    if (b.phase==="ENTERING"){
+        b.x -= 75*dt;
+        if (b.x <= b.enterTargetX){ b.x=b.enterTargetX; b.phase="PHASE_1"; b.fireCd=0; }
+        return;
+    }
+    // 阶段切换
+    if (b.phase==="PHASE_1" && b.hp<=30){ b.phase="PHASE_2"; b.fireCd=0; }
+    if (b.phase==="PHASE_2" && b.hp<=15){ b.phase="PHASE_3"; b.fireCd=0; }
+
+    const angToP = Math.atan2(p.y-b.y, p.x-b.x);
+
+    if (b.phase==="PHASE_1"){
+        b.x += b.dirX*50*dt;
+        if (b.x < b.leftBound){ b.x=b.leftBound; b.dirX=1; }
+        if (b.x > b.rightBound){ b.x=b.rightBound; b.dirX=-1; }
+        b.fireCd -= dt;
+        if (b.fireCd<=0){
+            b.fireCd = 2.0;
+            for (let i=-1;i<=1;i++){
+                const a = angToP + i*(Math.PI/8); // 扇形张角45度→3发间隔22.5度
+                const mx = b.x+Math.cos(a)*30, my=b.y+Math.sin(a)*30;
+                bossBullets.push({x:mx,y:my,vx:Math.cos(a)*260,vy:Math.sin(a)*260,life:3.0,r:4,dmg:1.0,dead:false,kind:"BULLET"});
+            }
+        }
+    } else if (b.phase==="PHASE_2"){
+        b.x += b.dirX*80*dt;
+        if (b.x < b.leftBound){ b.x=b.leftBound; b.dirX=1; }
+        if (b.x > b.rightBound){ b.x=b.rightBound; b.dirX=-1; }
+        if (!b.summonedPhase2){
+            b.summonedPhase2 = true;
+            enemyList.push(makeEnemy("INFANTRY", b.x-40, b.y));
+            enemyList.push(makeEnemy("INFANTRY", b.x+40, b.y));
+        }
+        b.fireCd -= dt;
+        if (b.fireCd<=0){
+            b.fireCd = 1.5;
+            const mx = b.x+Math.cos(angToP)*30, my=b.y+Math.sin(angToP)*30;
+            bossBullets.push({x:mx,y:my,vx:Math.cos(angToP)*200,vy:Math.sin(angToP)*200,life:3.0,r:4,dmg:1.5,dead:false,kind:"MISSILE",target:p,turnRate:3.0});
+        }
+    } else if (b.phase==="PHASE_3"){
+        b.x += b.dirX*110*dt;
+        if (b.x < b.leftBound){ b.x=b.leftBound; b.dirX=1; }
+        if (b.x > b.rightBound){ b.x=b.rightBound; b.dirX=-1; }
+        b.spinAngle += 6*dt;
+        shakeCb(0.3);
+        b.fireCd -= dt;
+        if (b.fireCd<=0){
+            b.fireCd = 1.0;
+            // 激光
+            b.laser = { angle: angToP - 0.5, sweep:[angToP-0.5, angToP+0.5], life:0.8, maxLife:0.8, dir:1 };
+        }
+    }
+    // 更新激光
+    if (b.laser){
+        b.laser.life -= dt;
+        b.laser.angle += 1.5*b.laser.dir*dt;
+        if (b.laser.angle > b.laser.sweep[1]){ b.laser.angle=b.laser.sweep[1]; b.laser.dir=-1; }
+        if (b.laser.angle < b.laser.sweep[0]){ b.laser.angle=b.laser.sweep[0]; b.laser.dir=1; }
+        if (b.laser.life<=0) b.laser=null;
+    }
+}
+function updateBossBullets(arr, col, mapW, mapH, dt, p){
+    for (const b of arr){
+        if (b.kind==="MISSILE" && b.target && !b.target.dead){
+            const desired = Math.atan2(b.target.y-b.y, b.target.x-b.x);
+            const cur = Math.atan2(b.vy, b.vx);
+            const newA = lerpAngle(cur, desired, Math.min(1, b.turnRate*dt));
+            const sp = Math.hypot(b.vx,b.vy);
+            b.vx = Math.cos(newA)*sp; b.vy = Math.sin(newA)*sp;
+        }
+        b.x += b.vx*dt; b.y += b.vy*dt; b.life-=dt;
+        if (b.life<=0||b.x<0||b.y<0||b.x>=mapW||b.y>=mapH) b.dead=true;
+        else if (isSolidPixel(col,mapW,mapH,b.x,b.y)) b.dead=true;
+    }
+    for (let i=arr.length-1;i>=0;i--) if (arr[i].dead) arr.splice(i,1);
+}
+
+// ===== POW 营 =====
+function makePOWCamps(mapW, mapH){
+    return [
+        {x:mapW*0.10,y:mapH*0.15},{x:mapW*0.90,y:mapH*0.15},
+        {x:mapW*0.10,y:mapH*0.85},{x:mapW*0.90,y:mapH*0.85},
+    ].map(c=>({x:c.x,y:c.y,remaining:4,state:"ACTIVE",r:16,interactR:50}));
+}
+function powInteractable(c){ return c.state==="ACTIVE"; }
+
+// ===== 关卡生成敌人 =====
+function spawnEnemies(level, col, mapW, mapH, p, tankPath){
+    const enemies = [];
+    const safeR = 160;
+    const trySpot = ()=>{
+        for (let i=0;i<30;i++){
+            const x = rand(32, mapW-32), y = rand(32, mapH-32);
+            if (isSolidPixel(col,mapW,mapH,x,y)) continue;
+            if (Math.hypot(x-p.x,y-p.y) < safeR) continue;
+            return {x,y};
+        }
+        return null;
+    };
+    // 步兵
+    const infCount = 8 + rint(5); // 8~12
+    for (let i=0;i<infCount;i++){
+        const s = trySpot(); if (s) enemies.push(makeEnemy("INFANTRY", s.x, s.y));
+    }
+    // 炮台
+    const turCount = 3 + rint(3); // 3~5
+    for (let i=0;i<turCount;i++){
+        const s = trySpot(); if (s) enemies.push(makeEnemy("TURRET", s.x, s.y, {facing: rand(0,Math.PI*2)}));
+    }
+    // 坦克
+    const path = (tankPath && tankPath.length>=2) ? tankPath : [{x:mapW*0.25,y:mapH*0.7},{x:mapW*0.75,y:mapH*0.7}];
+    enemies.push(makeEnemy("TANK", path[0].x, path[0].y, {path}));
+    return enemies;
+}
+
+// ===== 游戏状态 =====
+let level = 1;
+let levelData = makeLevel(1);
+let player = makePlayer(levelData.mapW, levelData.mapH);
+let ws = makeWeaponSystem();
+let bullets = [], enemyBullets = [], bossBullets = [];
+let enemies = [], powCamps = [], boss = null;
+let score = 0, rescued = 0, destroyed = 0;
+let phase = "PLAYING"; // PLAYING WAITING FADING_OUT FADING_IN GAME_CLEAR GAME_OVER
+let phaseTimer = 0;
+let bannerText = "", bannerTimer = 0;
+let shakeTime = 0;
+let camX = 0, camY = 0;
+const input = {up:false,down:false,left:false,right:false,fire:false};
+
+function loadLevel(lv){
+    levelData = makeLevel(lv);
+    player = makePlayer(levelData.mapW, levelData.mapH);
+    player.hp = player.maxHp = 3;
+    bullets = []; enemyBullets = []; bossBullets = [];
+    boss = null;
+    enemies = spawnEnemies(lv, levelData.col, levelData.mapW, levelData.mapH, player, levelData.tankPath);
+    powCamps = makePOWCamps(levelData.mapW, levelData.mapH);
+}
+function startGame(){
+    level = 1; score = 0; rescued = 0; destroyed = 0;
+    ws = makeWeaponSystem();
+    loadLevel(1);
+    phase = "PLAYING";
+}
+startGame();
+
+// ===== 输入 =====
+canvas.addEventListener("mousemove", e=>{
+    const r = canvas.getBoundingClientRect();
+    const sx = canvas.width/r.width, sy = canvas.height/r.height;
+    mouseX = (e.clientX - r.left)*sx;
+    mouseY = (e.clientY - r.top)*sy;
+});
+canvas.addEventListener("mousedown", e=>{ if(e.button===0) input.fire=true; });
+window.addEventListener("mouseup", e=>{ if(e.button===0) input.fire=false; });
+let mouseX=VW/2, mouseY=VH/2;
+let ePressed = false, spacePressed=false;
+
+window.addEventListener("keydown", e=>{
+    const k = e.key.toLowerCase();
+    if (k==="w"||k==="arrowup") input.up=true;
+    if (k==="s"||k==="arrowdown") input.down=true;
+    if (k==="a"||k==="arrowleft") input.left=true;
+    if (k==="d"||k==="arrowright") input.right=true;
+    if (k===" ") { if(!spacePressed){ spacePressed=true; ws.current = (ws.current+1)%(ws.unlocked+1); } e.preventDefault(); }
+    if (k==="e"){ if(!ePressed){ ePressed=true; tryRescue(); } }
+    if (k==="r" && phase==="GAME_CLEAR"){ startGame(); }
+    if (k==="escape"){ window.location.href="index.html"; }
+    if (["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"," "].includes(k)) e.preventDefault();
+});
+window.addEventListener("keyup", e=>{
+    const k = e.key.toLowerCase();
+    if (k==="w"||k==="arrowup") input.up=false;
+    if (k==="s"||k==="arrowdown") input.down=false;
+    if (k==="a"||k==="arrowleft") input.left=false;
+    if (k==="d"||k==="arrowright") input.right=false;
+    if (k===" ") spacePressed=false;
+    if (k==="e") ePressed=false;
+});
+
+function tryRescue(){
+    if (phase!=="PLAYING" || player.dead) return;
+    for (const c of powCamps){
+        if (c.state!=="ACTIVE") continue;
+        const d = Math.hypot(player.x-c.x, player.y-c.y);
+        if (d <= c.interactR){
+            c.remaining--;
+            score += 1000; rescued++;
+            banner("救援 +1000", 1.5);
+            if (c.remaining<=0){
+                c.state="RESCUED";
+                // 武器升级
+                if (ws.unlocked < WEAPONS.length-1){
+                    ws.unlocked++;
+                    ws.current = ws.unlocked;
+                    ws.cdTimer = 0;
+                    banner("武器升级："+WEAPONS[ws.current].name, 2);
+                }
+            }
+            break;
+        }
+    }
+}
+function banner(text, time){ bannerText=text; bannerTimer=time; }
+
+function shakeCb(t){ shakeTime = Math.max(shakeTime, t); }
+
+// ===== 碰撞与伤害 =====
+function playerTakeDamage(amount){
+    if (player.dead || player.hurtInvuln>0) return;
+    player.hp -= Math.ceil(amount);
+    player.hurtInvuln = 1.2;
+    if (player.hp<=0){ player.hp=0; player.dead=true; phase="GAME_OVER"; }
+}
+function enemyTakeDamage(e, amount){
+    if (e.dead || e.hitInvuln>0) return false;
+    e.hp -= amount;
+    e.hitInvuln = 0.1;
+    if (e.hp<=0){ e.dead=true; score += e.maxHp*100; }
+    return true;
+}
+function bossTakeDamage(b, amount){
+    if (b.defeated) return;
+    b.hp -= amount;
+    if (b.hp<=0){ b.hp=0; b.defeated=true; }
+}
+
+// ===== 主更新 =====
+function update(dt){
+    // 相机
+    const targetCamX = clamp(player.x - VW/2, 0, Math.max(0, levelData.mapW - VW));
+    const targetCamY = clamp(player.y - VH/2, 0, Math.max(0, levelData.mapH - VH));
+    camX = Math.round(targetCamX);
+    camY = Math.round(targetCamY);
+    // 地图刚好等于视口，相机为0
+    if (levelData.mapW <= VW) camX = 0;
+    if (levelData.mapH <= VH) camY = 0;
+
+    if (shakeTime>0) shakeTime-=dt;
+    if (bannerTimer>0) bannerTimer-=dt;
+
+    // 阶段过渡
+    if (phase==="WAITING"){
+        phaseTimer -= dt;
+        if (phaseTimer<=0){ phase="FADING_OUT"; phaseTimer=1.0; }
+        return;
+    }
+    if (phase==="FADING_OUT"){
+        phaseTimer -= dt;
+        if (phaseTimer<=0){
+            if (level < 2){
+                level++;
+                loadLevel(level);
+                phase="FADING_IN"; phaseTimer=1.0;
+            } else {
+                phase="GAME_CLEAR";
+            }
+        }
+        return;
+    }
+    if (phase==="FADING_IN"){
+        phaseTimer -= dt;
+        if (phaseTimer<=0) phase="PLAYING";
+        return;
+    }
+    if (phase!=="PLAYING") return;
+
+    // 瞄准
+    const worldMx = mouseX + camX, worldMy = mouseY + camY;
+    player.turretAngle = Math.atan2(worldMy - player.y, worldMx - player.x);
+
+    updatePlayer(player, dt, input);
+    movePlayerWithCollision(player, levelData.col, levelData.mapW, levelData.mapH, dt);
+
+    // 武器开火
+    if (input.fire && !player.dead){
+        ws.cdTimer -= dt;
+        if (ws.cdTimer<=0){ fireWeapon(ws, player, bullets); }
+    } else {
+        ws.cdTimer -= dt;
+        if (ws.cdTimer<0) ws.cdTimer=0;
+    }
+
+    updateBullets(bullets, levelData.col, levelData.mapW, levelData.mapH, dt);
+    updateEnemyBullets(enemyBullets, levelData.col, levelData.mapW, levelData.mapH, dt);
+    if (bossBullets.length) updateBossBullets(bossBullets, levelData.col, levelData.mapW, levelData.mapH, dt, player);
+
+    // 敌人更新
+    for (const e of enemies){ updateEnemy(e, dt, player, levelData.col, levelData.mapW, levelData.mapH, enemyBullets); }
+    for (let i=enemies.length-1;i>=0;i--) if (enemies[i].dead) enemies.splice(i,1);
+
+    // 子弹 vs 敌人
+    for (const b of bullets){
+        if (b.dead) continue;
+        const bb = {x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2};
+        for (const e of enemies){
+            if (e.dead) continue;
+            if (rectOverlap(bb.x,bb.y,bb.w,bb.h, e.x-e.r, e.y-e.r, e.r*2, e.r*2)){
+                if (enemyTakeDamage(e, b.dmg)){
+                    if (!b.pierce){ b.dead=true; break; }
+                }
+            }
+        }
+        // 手雷爆炸 AOE
+        if (b.type==="GRENADE" && b.dead && b.z===0){
+            for (const e of enemies){
+                if (e.dead) continue;
+                const d = Math.hypot(e.x-b.x, e.y-b.y);
+                if (d < 50) enemyTakeDamage(e, b.dmg);
+            }
+        }
+        // 子弹 vs POW 营（手雷/火箭可摧毁）
+        if (!b.dead && (b.type==="GRENADE"||b.type==="ROCKET")){
+            const bb2 = {x:b.x-b.r,y:b.y-b.r,w:b.r*2,h:b.r*2};
+            for (const c of powCamps){
+                if (c.state!=="ACTIVE") continue;
+                // 圆-矩形
+                const cx = clamp(b.x, bb2.x, bb2.x+bb2.w);
+                const cy = clamp(b.y, bb2.y, bb2.y+bb2.h);
+                if (Math.hypot(b.x-c.x?0:0, 0)===0){} // 简化：距离判定
+                if (Math.hypot(b.x-c.x, b.y-c.y) < c.r){
+                    score += c.remaining * 1000 * 0.5;
+                    destroyed += c.remaining;
+                    c.remaining=0; c.state="DESTROYED";
+                    b.dead=true;
+                    break;
+                }
+            }
+        }
+    }
+    bullets = bullets.filter(b=>!b.dead);
+
+    // 子弹 vs Boss
+    if (boss && !boss.defeated){
+        const bbnd = bossBounds(boss);
+        for (const b of bullets){
+            if (b.dead) continue;
+            if (rectOverlap(b.x-b.r,b.y-b.r,b.r*2,b.r*2, bbnd.x,bbnd.y,bbnd.w,bbnd.h)){
+                bossTakeDamage(boss, b.dmg);
+                if (!b.pierce) b.dead=true;
+            }
+        }
+        bullets = bullets.filter(b=>!b.dead);
+
+        // Boss 更新
+        updateBoss(boss, dt, player, bossBullets, enemies, levelData.mapW, levelData.mapH, shakeCb);
+
+        // Boss 接触伤害
+        const pb = playerBounds(player);
+        if (rectOverlap(pb.x,pb.y,pb.w,pb.h, bbnd.x,bbnd.y,bbnd.w,bbnd.h)){
+            playerTakeDamage(bossContactDmg(boss));
+        }
+        // Boss 子弹 vs 玩家
+        for (const b of bossBullets){
+            if (rectOverlap(pb.x,pb.y,pb.w,pb.h, b.x-b.r,b.y-b.r,b.r*2,b.r*2)){
+                playerTakeDamage(b.dmg); b.dead=true;
+            }
+        }
+        bossBullets = bossBullets.filter(b=>!b.dead);
+        // 激光 vs 玩家
+        if (boss.laser){
+            // 简化：距离激光射线判定
+            const la = boss.laser.angle;
+            const lx = boss.x, ly = boss.y;
+            const px = player.x - lx, py = player.y - ly;
+            const proj = px*Math.cos(la)+py*Math.sin(la);
+            const perp = Math.abs(-px*Math.sin(la)+py*Math.cos(la));
+            if (proj>0 && proj<700 && perp < 5+player.HALF_W){
+                playerTakeDamage(1.0*dt*5); // DPS 近似
+            }
+        }
+        // Boss 被击败
+        if (boss.defeated){
+            score += 10000;
+            banner("任务完成 +10000", 2);
+            boss = null;
+            if (level < 2){ phase="WAITING"; phaseTimer=2.0; }
+            else { phase="WAITING"; phaseTimer=2.0; }
+        }
+    }
+
+    // 敌人子弹 vs 玩家
+    if (!player.dead){
+        const pb = playerBounds(player);
+        for (const b of enemyBullets){
+            if (rectOverlap(pb.x,pb.y,pb.w,pb.h, b.x-b.r,b.y-b.r,b.r*2,b.r*2)){
+                playerTakeDamage(b.dmg); b.dead=true;
+            }
+        }
+        enemyBullets = enemyBullets.filter(b=>!b.dead);
+        // 敌人接触伤害
+        for (const e of enemies){
+            if (e.dead) continue;
+            if (rectOverlap(pb.x,pb.y,pb.w,pb.h, e.x-e.r,e.y-e.r,e.r*2,e.r*2)){
+                playerTakeDamage(e.contact);
+            }
+        }
+    }
+
+    // Boss 登场条件
+    if (!boss && phase==="PLAYING" && enemies.length===0 && powCamps.every(c=>!powInteractable(c))){
+        boss = makeBoss(levelData.mapW, levelData.mapH);
+        banner("警告：装甲 Boss 来袭！", 2);
+    }
+}
+
+// ===== 渲染 =====
+function drawTileMap(){
+    const col = levelData.col, W=levelData.W, H=levelData.H;
+    for (let y=0;y<H;y++){
+        for (let x=0;x<W;x++){
+            const px = x*TILE - camX, py = y*TILE - camY;
+            if (col[y][x]===1){
+                ctx.fillStyle = "#5a4a3a";
+                ctx.fillRect(px,py,TILE,TILE);
+                ctx.fillStyle = "#6b5a48";
+                ctx.fillRect(px+2,py+2,TILE-4,TILE-4);
+                ctx.strokeStyle="#3a2e22"; ctx.lineWidth=1;
+                ctx.strokeRect(px+0.5,py+0.5,TILE-1,TILE-1);
+            } else {
+                ctx.fillStyle = "#2d4a2d";
+                ctx.fillRect(px,py,TILE,TILE);
+                ctx.fillStyle = "#355135";
+                ctx.fillRect(px+4,py+4,8,8);
+                ctx.fillRect(px+18,py+16,6,6);
+            }
+        }
+    }
+}
+function drawPlayer(){
+    const p = player;
+    const px = p.x - camX, py = p.y - camY;
+    if (p.hurtInvuln>0 && Math.floor(p.hurtInvuln*12)%2===0) return;
+    ctx.save();
+    ctx.translate(px,py);
+    ctx.rotate(p.bodyAngle);
+    ctx.fillStyle = p.dead ? "#888" : "#27ae60";
+    ctx.fillRect(-p.HALF_W, -p.HALF_H, p.HALF_W*2, p.HALF_H*2);
+    ctx.restore();
+    // 炮塔线
+    ctx.strokeStyle = p.dead?"#666":"#f1c40f";
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(px,py);
+    ctx.lineTo(px+Math.cos(p.turretAngle)*30, py+Math.sin(p.turretAngle)*30);
+    ctx.stroke();
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(px,py,2,0,Math.PI*2); ctx.fill();
+}
+function drawBullets(){
+    for (const b of bullets){
+        const px=b.x-camX, py=b.y-camY;
+        if (b.type==="GRENADE"){
+            ctx.fillStyle="rgba(0,0,0,0.3)";
+            ctx.beginPath(); ctx.arc(px,py,b.r,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle=b.color;
+            ctx.beginPath(); ctx.arc(px,py-b.z,b.r,0,Math.PI*2); ctx.fill();
+        } else {
+            ctx.fillStyle=b.color;
+            ctx.beginPath(); ctx.arc(px,py,b.r,0,Math.PI*2); ctx.fill();
+        }
+    }
+}
+function drawEnemyBullets(){
+    ctx.fillStyle="#e040fb";
+    for (const b of enemyBullets){ ctx.beginPath(); ctx.arc(b.x-camX,b.y-camY,3,0,Math.PI*2); ctx.fill(); }
+    for (const b of bossBullets){
+        ctx.fillStyle = b.kind==="MISSILE" ? "#ff80c0" : "#bb86fc";
+        ctx.beginPath(); ctx.arc(b.x-camX,b.y-camY,b.r,0,Math.PI*2); ctx.fill();
+    }
+}
+function drawEnemies(){
+    for (const e of enemies){
+        const px=e.x-camX, py=e.y-camY;
+        if (e.kind==="INFANTRY"){
+            ctx.fillStyle="#8b6914";
+            ctx.beginPath(); ctx.arc(px,py,e.r,0,Math.PI*2); ctx.fill();
+            ctx.strokeStyle="#c0392b"; ctx.lineWidth=1.5;
+            ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+Math.cos(e.drift||0)*8, py+Math.sin(e.drift||0)*8); ctx.stroke();
+        } else if (e.kind==="TANK"){
+            ctx.fillStyle="#555";
+            ctx.beginPath(); ctx.arc(px,py,e.r,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="#777";
+            ctx.fillRect(px-4,py-4,8,8);
+            ctx.strokeStyle="#aaa"; ctx.lineWidth=2;
+            const ang = Math.atan2(player.y-e.y, player.x-e.x);
+            ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+Math.cos(ang)*(e.r+4), py+Math.sin(ang)*(e.r+4)); ctx.stroke();
+        } else if (e.kind==="TURRET"){
+            ctx.fillStyle="#666";
+            ctx.beginPath(); ctx.arc(px,py,e.r,0,Math.PI*2); ctx.fill();
+            if (e.state==="PATROL"){
+                ctx.fillStyle="rgba(231,76,60,0.12)";
+                ctx.beginPath();
+                ctx.moveTo(px,py);
+                ctx.arc(px,py,e.range, (e.facing||0)-e.viewHalf, (e.facing||0)+e.viewHalf);
+                ctx.closePath(); ctx.fill();
+            }
+            ctx.strokeStyle="#c0392b"; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.moveTo(px,py);
+            ctx.lineTo(px+Math.cos(e.facing||0)*(e.r+4), py+Math.sin(e.facing||0)*(e.r+4));
+            ctx.stroke();
+        }
+        // 血条
+        if (e.maxHp>1 && e.hp<e.maxHp){
+            ctx.fillStyle="#444"; ctx.fillRect(px-e.r, py-e.r-7, e.r*2, 3);
+            ctx.fillStyle = e.hp/e.maxHp>0.5?"#2ecc71":(e.hp/e.maxHp>0.25?"#e67e22":"#e74c3c");
+            ctx.fillRect(px-e.r, py-e.r-7, (e.hp/e.maxHp)*e.r*2, 3);
+        }
+    }
+}
+function drawPOW(){
+    for (const c of powCamps){
+        const px=c.x-camX, py=c.y-camY;
+        if (c.state==="ACTIVE"){
+            ctx.strokeStyle="#3498db"; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.arc(px,py,c.r,0,Math.PI*2); ctx.stroke();
+            ctx.fillStyle="#fff";
+            for (let i=0;i<c.remaining;i++){
+                const a = i*(Math.PI*2/4) - Math.PI/2;
+                ctx.beginPath(); ctx.arc(px+Math.cos(a)*10, py+Math.sin(a)*10, 2, 0, Math.PI*2); ctx.fill();
+            }
+        } else if (c.state==="RESCUED"){
+            ctx.strokeStyle="#2ecc71"; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.arc(px,py,c.r,0,Math.PI*2); ctx.stroke();
+        } else {
+            ctx.strokeStyle="#e74c3c"; ctx.lineWidth=3;
+            ctx.beginPath(); ctx.moveTo(px-c.r,py-c.r); ctx.lineTo(px+c.r,py+c.r);
+            ctx.moveTo(px+c.r,py-c.r); ctx.lineTo(px-c.r,py+c.r); ctx.stroke();
+        }
+    }
+}
+function drawBoss(){
+    if (!boss) return;
+    const b=boss; const px=b.x-camX, py=b.y-camY;
+    ctx.save();
+    ctx.translate(px,py);
+    if (b.phase==="PHASE_3") ctx.rotate(b.spinAngle);
+    ctx.fillStyle = b.phase==="PHASE_3"?"#c0392b":(b.phase==="PHASE_2"?"#d35400":"#a02020");
+    ctx.fillRect(-b.halfW,-b.halfH,b.halfW*2,b.halfH*2);
+    ctx.fillStyle="#7a1515";
+    ctx.fillRect(-b.halfW+10,-b.halfH+10,b.halfW*2-20,20);
+    ctx.restore();
+    // 激光
+    if (b.laser){
+        ctx.save();
+        ctx.translate(px,py);
+        ctx.rotate(b.laser.angle);
+        ctx.globalAlpha = Math.max(0,b.laser.life/b.laser.maxLife);
+        ctx.fillStyle="rgba(80,200,255,0.3)";
+        ctx.fillRect(0,-6,700,12);
+        ctx.fillStyle="#80e0ff";
+        ctx.fillRect(0,-2,700,4);
+        ctx.globalAlpha=1;
+        ctx.restore();
+    }
+    // Boss 血条
+    ctx.fillStyle="#444"; ctx.fillRect(20,10,VW-40,12);
+    ctx.fillStyle = b.phase==="PHASE_1"?"#c0392b":(b.phase==="PHASE_2"?"#e67e22":"#e74c3c");
+    ctx.fillRect(20,10,(b.hp/b.maxHp)*(VW-40),12);
+    ctx.strokeStyle="#fff"; ctx.lineWidth=1; ctx.strokeRect(20,10,VW-40,12);
+}
+function drawHUD(){
+    ctx.fillStyle="#fff"; ctx.font="13px monospace"; ctx.textAlign="left";
+    ctx.fillText(`关卡 ${level}/2  武器:${WEAPONS[ws.current].name}  冷却:${ws.cdTimer.toFixed(2)}s`, 8, 22);
+    ctx.fillText(`战俘剩余:${powCamps.reduce((s,c)=>s+(c.state==="ACTIVE"?c.remaining:0),0)}  敌人:${enemies.length}`, 8, 40);
+    ctx.fillText(`生命:${player.hp}/${player.maxHp}`, 8, 58);
+    ctx.textAlign="right";
+    ctx.fillText(`分数:${score}  救援:${rescued}  摧毁:${destroyed}`, VW-8, 22);
+    ctx.textAlign="left";
+    // 冷却条
+    const w = WEAPONS[ws.current];
+    const ready = ws.cdTimer<=0;
+    ctx.fillStyle = ready?"#2ecc71":"#f1c40f";
+    ctx.fillRect(8, 66, Math.max(0, 120*(1-Math.max(0,ws.cdTimer)/w.cd)), 6);
+    ctx.strokeStyle="#555"; ctx.strokeRect(8,66,120,6);
+    // 生命条
+    for (let i=0;i<player.maxHp;i++){
+        ctx.fillStyle = i<player.hp ? "#e74c3c" : "#333";
+        ctx.fillRect(8+i*28, 78, 24, 10);
+    }
+    // 横幅
+    if (bannerTimer>0){
+        ctx.globalAlpha = Math.min(1, bannerTimer/0.5);
+        ctx.fillStyle="#f1c40f"; ctx.font="bold 22px sans-serif"; ctx.textAlign="center";
+        ctx.fillText(bannerText, VW/2, VH/2 - 40);
+        ctx.globalAlpha=1; ctx.textAlign="left";
+    }
+    // 死亡
+    if (phase==="GAME_OVER"){
+        ctx.fillStyle="rgba(0,0,0,0.7)"; ctx.fillRect(0,0,VW,VH);
+        ctx.fillStyle="#e74c3c"; ctx.font="bold 36px sans-serif"; ctx.textAlign="center";
+        ctx.fillText("GAME OVER", VW/2, VH/2);
+        ctx.fillStyle="#fff"; ctx.font="16px sans-serif";
+        ctx.fillText("按 Esc 退出", VW/2, VH/2+36);
+        ctx.textAlign="left";
+    }
+    // 通关
+    if (phase==="GAME_CLEAR"){
+        ctx.fillStyle="rgba(0,0,0,0.8)"; ctx.fillRect(0,0,VW,VH);
+        ctx.fillStyle="#f1c40f"; ctx.font="bold 32px sans-serif"; ctx.textAlign="center";
+        ctx.fillText("游戏通关！", VW/2, VH/2-30);
+        ctx.fillStyle="#fff"; ctx.font="bold 22px sans-serif";
+        ctx.fillText("最终得分: "+score, VW/2, VH/2+10);
+        ctx.font="16px sans-serif";
+        ctx.fillText("按 R 重新开始", VW/2, VH/2+50);
+        ctx.textAlign="left";
+    }
+    // 过渡
+    if (phase==="FADING_OUT"){ ctx.fillStyle=`rgba(0,0,0,${1-phaseTimer})`; ctx.fillRect(0,0,VW,VH); }
+    if (phase==="FADING_IN"){
+        ctx.fillStyle=`rgba(0,0,0,${phaseTimer})`; ctx.fillRect(0,0,VW,VH);
+        if (phaseTimer<0.5){
+            ctx.fillStyle="#fff"; ctx.font="bold 28px sans-serif"; ctx.textAlign="center";
+            ctx.fillText("第 "+level+" 关", VW/2, VH/2); ctx.textAlign="left";
+        }
+    }
+}
+
+function draw(){
+    ctx.fillStyle="#000"; ctx.fillRect(0,0,VW,VH);
+    ctx.save();
+    if (shakeTime>0){
+        ctx.translate(rand(-4,4), rand(-4,4));
+    }
+    drawTileMap();
+    drawPOW();
+    drawBullets();
+    drawEnemyBullets();
+    drawEnemies();
+    drawPlayer();
+    drawBoss();
+    ctx.restore();
+    drawHUD();
+}
+
+let last = performance.now();
+function loop(now){
+    const dt = Math.min(0.033, (now-last)/1000);
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猜数字 · 帝国终端</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .terminal {
+        max-width: 640px; margin: 0 auto; padding: 32px 24px 60px;
+        font-family: "Cascadia Code", Consolas, monospace;
+    }
+    .term-box {
+        background: #0a0d12; border: 1px solid #3a4a2a; border-radius: 10px;
+        padding: 24px; color: #a8c060; box-shadow: 0 0 30px rgba(80,140,40,.08) inset;
+        min-height: 360px;
+    }
+    .term-box h2 { color: #d4e0a0; border: none; margin: 0 0 12px; font-size: 1.05rem; }
+    .term-line { margin: 4px 0; line-height: 1.7; white-space: pre-wrap; }
+    .prompt { color: #6ea8fe; }
+    .warn { color: #fbbf24; }
+    .err { color: #ef4444; }
+    .win { color: #4ade80; font-weight: bold; }
+    .dim { color: #6a7a4a; }
+    .rank { color: #c8a44e; font-weight: bold; }
+    .actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
+    .term-input {
+        flex: 1; min-width: 180px; background: #11160e; border: 1px solid #3a4a2a;
+        color: #a8c060; padding: 10px 14px; border-radius: 6px; font-family: inherit; font-size: 1rem; outline: none;
+    }
+    .term-input:focus { border-color: #6ea8fe; }
+    .btn {
+        background: #1e2336; color: #e6e8ef; border: 1px solid #3a4a2a; padding: 10px 18px;
+        border-radius: 6px; cursor: pointer; font-family: inherit; font-size: .95rem;
+    }
+    .btn:hover { background: #262c44; border-color: #6ea8fe; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .bars { display: flex; gap: 4px; flex-wrap: wrap; margin: 12px 0; }
+    .bar {
+        width: 34px; height: 12px; border-radius: 2px; background: #1a2030; border: 1px solid #2c3350;
+    }
+    .bar.used { background: #ef4444; border-color: #ef4444; }
+    .bar.win { background: #4ade80; border-color: #4ade80; }
+    .cool-bar {
+        height: 4px; background: #1a2030; border-radius: 2px; margin-top: 8px; overflow: hidden; display: none;
+    }
+    .cool-fill { height: 100%; background: #fbbf24; width: 100%; transition: width .2s linear; }
+</style>
+</head>
+<body>
+<div class="page terminal">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<h1>猜数字 · 帝国终端</h1>
+<p class="subtitle">战锤 40K 主题猜数字 · 点击即玩（存档保存在本地浏览器）</p>
+<div class="meta">
+<span>类型：命令行风格网页游戏</span><span>原作：number/numberwho.java</span><span>存档：localStorage</span>
+</div>
+
+<div class="term-box" id="term">
+    <div id="log"></div>
+    <div class="bars" id="bars"></div>
+    <div class="cool-bar" id="coolBar"><div class="cool-fill" id="coolFill"></div></div>
+    <div class="actions" id="actions">
+        <input class="term-input" id="input" type="text" placeholder="输入指令或数字…" autocomplete="off">
+        <button class="btn" id="submit">提交</button>
+        <button class="btn" id="again" style="display:none">再来一局</button>
+    </div>
+</div>
+
+<p style="color:var(--text-dim);font-size:.88rem;margin-top:18px">
+    规则：猜 1-50 之间的整数，共 8 次机会。输入过快会触发帝皇防御协议（10 秒冷却）。
+    军衔随胜场提升：新兵 → 士兵 → 老兵 → 军士 → 政委 → 星际战士。
+</p>
+</div>
+
+<script>
+(function(){
+    const MIN = 1, MAX = 50, MAX_TRIES = 8;
+    const RANKS = [[50,"星际战士"],[30,"政委"],[20,"军士"],[10,"老兵"],[5,"士兵"],[0,"新兵"]];
+    const QUOTES = [
+        "为了帝皇！荣耀属于人类！",
+        "唯有战争，没有和平。",
+        "帝皇护佑，钢铁之魂不灭。",
+        "异端必被净化，背叛必遭审判。",
+        "在黑暗的时代，唯有信仰是火炬。",
+        "忠诚本身就是奖赏。",
+        "帝皇的光辉穿透亚空间。",
+        "不屈的意志，是帝国最坚硬的铠甲。"
+    ];
+    const SAVE_KEY = "numberwho_save";
+
+    const logEl = document.getElementById("log");
+    const barsEl = document.getElementById("bars");
+    const input = document.getElementById("input");
+    const submit = document.getElementById("submit");
+    const again = document.getElementById("again");
+    const coolBar = document.getElementById("coolBar");
+    const coolFill = document.getElementById("coolFill");
+
+    let save = loadSave();
+    let phase = save && save.loggedIn ? "menu" : "login"; // login | menu | playing | cooldown-blocked
+    let currentUser = save && save.username || null;
+    let answer = 0, triesUsed = 0, gameOver = false;
+    let guessCountInWindow = 0, windowStart = 0, cooldownEnd = 0, coolTimer = null;
+
+    function loadSave(){
+        try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || null; } catch(e){ return null; }
+    }
+    function persist(){ if (currentUser) localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
+
+    function rank(wins){
+        for (const [n,name] of RANKS) if (wins >= n) return name;
+        return "新兵";
+    }
+    function todayQuote(){ return QUOTES[Math.floor(Math.random()*QUOTES.length)]; }
+
+    function print(text, cls){
+        const div = document.createElement("div");
+        div.className = "term-line" + (cls ? " "+cls : "");
+        div.textContent = text;
+        logEl.appendChild(div);
+        logEl.parentElement.scrollTop = logEl.parentElement.scrollHeight;
+        return div;
+    }
+    function clearLog(){ logEl.innerHTML = ""; }
+
+    function renderBars(){
+        barsEl.innerHTML = "";
+        for (let i=0;i<MAX_TRIES;i++){
+            const b = document.createElement("div");
+            b.className = "bar";
+            if (i < triesUsed){
+                if (gameOver && i === triesUsed-1 && answer !== -1) b.classList.add("win");
+                else b.classList.add("used");
+            }
+            barsEl.appendChild(b);
+        }
+    }
+
+    function setPhase(p){ phase = p; }
+
+    function showMenu(){
+        clearLog();
+        const wins = save.wins || 0, total = save.totalGames || 0, best = save.bestGuesses;
+        print("========== 战锤档案 ==========");
+        print("操作员: " + currentUser);
+        print("当前军衔: " + rank(wins), "rank");
+        print("总对局: " + total + " | 胜利: " + wins);
+        if (best && best < 999) print("最快记录: " + best + " 次");
+        print("============================");
+        print("[每日战吼]: " + todayQuote());
+        print("[规则] 猜 " + MIN + "-" + MAX + " 之间的整数，共 " + MAX_TRIES + " 次机会。", "dim");
+        print("[警告] 输入过快会被帝皇制裁(限流)，输入 0 退出。", "warn");
+        print("");
+        print("输入数字开始猜测，或输入 logout 切换账号。", "prompt");
+        setPhase("menu");
+        input.placeholder = "输入数字开始游戏…";
+    }
+
+    function startRound(){
+        answer = Math.floor(Math.random()*MAX)+MIN;
+        triesUsed = 0; gameOver = false;
+        clearLog();
+        print("新一局开始。帝皇注视着你。", "dim");
+        renderBars();
+        setPhase("playing");
+        input.placeholder = "第 1 次猜测 (1-50，0退出)";
+    }
+
+    function checkRateLimit(now){
+        if (!windowStart || now - windowStart >= 10000){ windowStart = now; guessCountInWindow = 0; }
+        if (guessCountInWindow >= 3){
+            cooldownEnd = now + 10000;
+            print(">> 输入过于频繁！触发防御协议，锁定 10 秒。", "err");
+            startCooldown();
+            return true;
+        }
+        return false;
+    }
+
+    function startCooldown(){
+        setPhase("cooldown-blocked");
+        coolBar.style.display = "block";
+        submit.disabled = true;
+        if (coolTimer) clearInterval(coolTimer);
+        const tick = () => {
+            const remain = cooldownEnd - Date.now();
+            if (remain <= 0){
+                clearInterval(coolTimer); coolTimer = null;
+                coolBar.style.display = "none";
+                submit.disabled = false;
+                input.focus();
+                if (phase === "cooldown-blocked") setPhase(triesUsed === 0 ? "menu" : "playing");
+                return;
+            }
+            coolFill.style.width = (remain/10000*100) + "%";
+        };
+        tick();
+        coolTimer = setInterval(tick, 100);
+    }
+
+    function handleGuess(raw){
+        const now = Date.now();
+        if (checkRateLimit(now)) return;
+
+        const g = parseInt(raw, 10);
+        if (isNaN(g)){ guessCountInWindow++; print(">> 异端输入！请输入数字。", "err"); return; }
+        guessCountInWindow++;
+
+        if (g === 0){ print(">> 正在安全断开连接…", "dim"); setPhase("menu"); showMenu(); return; }
+        if (g < MIN || g > MAX){ print(">> 超出范围 (" + MIN + "-" + MAX + ")", "warn"); return; }
+
+        triesUsed++;
+        if (g === answer){
+            print("*** 恭喜猜中！答案是 " + answer + " ***", "win");
+            save.totalGames = (save.totalGames||0)+1;
+            save.wins = (save.wins||0)+1;
+            save.bestGuesses = Math.min(save.bestGuesses||999, triesUsed);
+            save.totalGuesses = (save.totalGuesses||0)+triesUsed;
+            save.guessHistory = save.guessHistory || [];
+            save.guessHistory.push("Game#"+save.totalGames+": Win in "+triesUsed+" tries");
+            if (save.guessHistory.length > 50) save.guessHistory = save.guessHistory.slice(-50);
+            persist();
+            gameOver = true; answer = -1;
+            renderBars();
+            endRound(true);
+            return;
+        }
+        print("第 " + triesUsed + " 次: " + g + " → " + (g > answer ? "太大了" : "太小了"), g > answer ? "warn" : "prompt");
+        renderBars();
+        if (triesUsed >= MAX_TRIES){
+            print("!!! 失败 !!! 答案是: " + answer, "err");
+            save.totalGames = (save.totalGames||0)+1;
+            save.totalGuesses = (save.totalGuesses||0)+triesUsed;
+            persist();
+            gameOver = true;
+            endRound(false);
+            return;
+        }
+        input.placeholder = "第 " + (triesUsed+1) + " 次猜测";
+    }
+
+    function endRound(won){
+        setPhase("ended");
+        input.style.display = "none";
+        submit.style.display = "none";
+        again.style.display = "inline-block";
+        print(won ? "军衔进度：胜利 +" + 1 + "（当前 " + rank(save.wins) + "）" : "帝皇宽恕你的失败，再来一次。", "dim");
+    }
+
+    function nextRound(){
+        input.style.display = "";
+        submit.style.display = "";
+        again.style.display = "none";
+        startRound();
+        input.focus();
+    }
+
+    function handleLogin(raw){
+        const user = raw.trim();
+        if (!user){ print(">> 请输入代号。", "err"); return; }
+        currentUser = user;
+        if (!save || save.username !== user){
+            save = {
+                username: user, loggedIn: true,
+                totalGames: 0, wins: 0, bestGuesses: 999, totalGuesses: 0, guessHistory: []
+            };
+        } else {
+            save.loggedIn = true;
+        }
+        persist();
+        print(">> 档案建立/确认。欢迎，" + user + "。", "win");
+        showMenu();
+    }
+
+    function onSubmit(){
+        const raw = input.value;
+        input.value = "";
+        if (phase === "cooldown-blocked") return;
+
+        if (phase === "login"){
+            print("> " + raw, "prompt");
+            handleLogin(raw);
+            return;
+        }
+        if (phase === "menu"){
+            if (raw.trim() === "logout"){
+                if (save) save.loggedIn = false;
+                localStorage.removeItem(SAVE_KEY);
+                save = null; currentUser = null;
+                print(">> 已登出。", "dim");
+                bootLogin();
+                return;
+            }
+            const n = parseInt(raw, 10);
+            if (!isNaN(n) && raw.trim() !== ""){
+                print("> " + raw, "prompt");
+                startRound();
+                return;
+            }
+            print(">> 请输入数字开始游戏，或 logout 登出。", "warn");
+            return;
+        }
+        if (phase === "playing"){
+            print("> " + raw, "prompt");
+            handleGuess(raw);
+            return;
+        }
+        if (phase === "ended"){
+            print("> " + raw, "prompt");
+            nextRound();
+            return;
+        }
+    }
+
+    function bootLogin(){
+        clearLog();
+        print("========== 帝国终端接入 ==========");
+        print("请输入你的代号(用户名)建立或恢复档案：", "prompt");
+        setPhase("login");
+        input.placeholder = "输入代号…";
+        input.style.display = "";
+        submit.style.display = "";
+        again.style.display = "none";
+    }
+
+    submit.addEventListener("click", onSubmit);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") onSubmit(); });
+    again.addEventListener("click", nextRound);
+
+    // 启动
+    if (save && save.loggedIn){
+        currentUser = save.username;
+        showMenu();
+    } else {
+        bootLogin();
+    }
+    input.focus();
+})();
+</script>
+</body>
+</html>

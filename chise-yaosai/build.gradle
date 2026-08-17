@@ -1,0 +1,40 @@
+plugins {
+    id "java"
+}
+
+// ===== 全局配置 =====
+allprojects {
+    // 统一项目版本，后续模块化迭代时在此维护
+    version = "0.1.0"
+    group = "com.jackal"
+
+    // 使用 application 插件提供的仓库配置（此处仅声明，实际插件在各子项目按需应用）
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        // Maven Central 偶尔同步滞后，备用阿里云镜像加速国内下载
+        maven { url "https://maven.aliyun.com/repository/public" }
+    }
+}
+
+// ===== Java 版本统一约束 =====
+// 环境检测：当前机器为 JDK 26。LibGDX 1.12.x 官方基于 Java 8/11 编译，
+// 但在 Java 17+ 运行完全兼容。这里我们把 sourceCompatibility 固定为 17，
+// 既满足协议要求（Java 17+），又保证与未来 JDK 26 的向前兼容性。
+// 若后续升级到 LibGDX 1.13.x，可考虑提升到 21。
+subprojects {
+    apply plugin: "java"
+
+    // 注意：当前机器仅安装了 JDK 26，且离线环境无法通过 foojay-resolver 下载 JDK 17。
+    // 因此不使用 toolchain 自动下载，而是用当前 JDK 编译 + --release 17 保证字节码兼容。
+    // --release 17 会同时限制源码 API 与字节码版本到 Java 17，等价于 source/targetCompatibility=17，
+    // 但比后者更严格（编译期即禁止使用 JDK 18+ 新增 API），更安全。
+    // 若后续机器装了 JDK 17 或网络可下载 toolchain，可改回:
+    //   java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = "UTF-8"
+        options.release = 17
+        options.compilerArgs += ["-Xlint:unchecked", "-Xlint:deprecation"]
+    }
+}

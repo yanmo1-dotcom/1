@@ -1,0 +1,98 @@
+// ============================================================
+// web/build.gradle —— 网页启动模块（GWT 后端）
+// 把 :core 的游戏逻辑编译为 JavaScript，跑在浏览器里。
+// 不用 gwt-gradle 插件（避免插件与 Gradle 9.7 的兼容问题），
+// 而是直接用 JavaExec 调用 GWT 编译器主类 com.google.gwt.dev.Compiler。
+// ============================================================
+
+// GWT 编译器不兼容 JDK26，必须用 JDK21 跑。
+// VS Code 的 Red Hat Java 扩展自带 Temurin-21，路径如下：
+def JDK21_HOME = "C:/Users/cdl24/.vscode/extensions/redhat.java-1.55.0-win32-x64/jre/21.0.11-win32-x86_64"
+
+// GWT 版本：用 2.10.0（org.gwtproject 坐标，比 com.google.gwt 旧坐标更可靠）
+def gwtVersion = "2.10.0"
+
+// 本模块仓库：显式声明，确保 sources jar 等能从 Maven Central 下载
+// （mavenLocal 的 _remote.repositories 可能锁定来源导致 fallback 失效）
+repositories {
+    mavenCentral()
+    maven { url "https://maven.aliyun.com/repository/public" }
+    mavenLocal()
+}
+
+dependencies {
+    // 依赖核心模块（游戏逻辑）
+    implementation project(":core")
+
+    // LibGDX GWT 后端（含 sources，GWT 编译器需要源码）
+    implementation "com.badlogicgames.gdx:gdx-backend-gwt:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-backend-gwt:$gdxVersion:sources"
+    implementation "com.badlogicgames.gdx:gdx:$gdxVersion:sources"
+
+    // GWT 工具链（org.gwtproject 是 Maven Central 真实坐标）
+    implementation "org.gwtproject:gwt-user:$gwtVersion"
+    implementation "org.gwtproject:gwt-dev:$gwtVersion"
+}
+
+// ===== 编译 Java 源码 =====
+// 用 JDK21 编译 web 模块的启动器代码（GWT 源码层面只支持到 Java 11 语法，
+// 但我们的启动器代码语法很简单，Java 11 够用）
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+    // GWT 不支持 Java 8 之后的源码语法，固定 source/target 为 8
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+}
+
+// ===== GWT 编译任务：把 Java 源码编译为 JavaScript =====
+def gwtModule = "com.jackal.web.Jackal"
+def warDir = file("build/gwt/out")
+def workDir = file("build/gwt/work")
+def extraDir = file("build/gwt/extra")
+
+task compileGwt(type: JavaExec) {
+    group = "build"
+    description = "GWT 编译：把游戏编译为 JavaScript 网页资源"
+    // GWT 编译器用 JDK21 跑（不兼容 JDK26）
+    executable = "${JDK21_HOME}/bin/java.exe"
+    // JDK17+ 需放开模块化封装，GWT 编译器要深反射
+    jvmArgs "--add-opens=java.base/java.lang=ALL-UNNAMED"
+    jvmArgs "--add-opens=java.base/java.util=ALL-UNNAMED"
+    jvmArgs "-Xmx2048m"
+
+    // classpath：所有依赖 + 本模块编译产物 + 资源（.gwt.xml）
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.main.resources
+    // GWT 编译器主类
+    mainClass = "com.google.gwt.dev.Compiler"
+
+    // 参数
+    args "-logLevel", "INFO"
+    args "-war", warDir.absolutePath
+    args "-workDir", workDir.absolutePath
+    args "-extra", extraDir.absolutePath
+    args "-localWorkers", "2"
+    // 编译目标模块（对应 .gwt.xml 的 rename-to）
+    args gwtModule
+
+    // 输入输出
+    inputs.dir sourceSets.main.java.srcDirs
+    inputs.dir sourceSets.main.resources
+    outputs.dir warDir
+}
+
+// 依赖 compileJava（GWT 要读 .class）
+compileGwt.dependsOn classes
+
+// ===== 运行/调试：GWT dev mode（Super Dev Mode） =====
+task devMode(type: JavaExec) {
+    group = "application"
+    description = "GWT Super Dev Mode：本地启动代码服务器，浏览器访问调试"
+    executable = "${JDK21_HOME}/bin/java.exe"
+    jvmArgs "--add-opens=java.base/java.lang=ALL-UNNAMED"
+    jvmArgs "-Xmx2048m"
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.main.resources
+    mainClass = "com.google.gwt.dev.codeserver.CodeServer"
+    args "-bindAddress", "127.0.0.1"
+    args "-port", "9876"
+    args gwtModule
+}

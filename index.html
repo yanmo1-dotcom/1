@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 Java 作品集</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="hero">
+    <h1>我的 Java 作品集</h1>
+    <p>这里收录了我做过的 <span class="count">14</span> 个项目：从桌面游戏、网络应用到算法题解。每个项目都有自己的独立页面，点击卡片进入查看详细介绍。</p>
+    <span class="play-badge">▶ 11 个项目已做成网页版，点击即玩 / 在线演示！</span>
+</div>
+
+<div class="section">
+    <h2>游戏</h2>
+    <div class="grid">
+        <a class="card" href="ice-game-play.html">
+            <span class="tag">桌面游戏 · Java Swing</span>
+            <h3>冰球游戏 Ice Game <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>Java Swing 写的冰球对战，支持单人打 AI 和局域网双人联机，先得 7 分获胜。网页版可直接玩（单人 vs AI）。</p>
+            <div class="tech">Java 17 · Swing · Socket</div>
+        </a>
+        <a class="card" href="kapai-play.html">
+            <span class="tag">桌面游戏 · libGDX</span>
+            <h3>卡牌游戏 Kapai <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>一款 Roguelike 卡牌游戏，包含战斗、卡牌、生物、效果等完整系统，多模块 Maven 工程。网页版可直接玩卡牌战斗。</p>
+            <div class="tech">Java 17 · libGDX · Maven 多模块</div>
+        </a>
+        <a class="card" href="voxel-terraria.html">
+            <span class="tag">桌面游戏 · LWJGL</span>
+            <h3>体素泰拉瑞亚 Voxel Terraria</h3>
+            <p>体素风格的沙盒游戏，含世界生成、实体、背包、粒子、音频、存档等模块。</p>
+            <div class="tech">Java · LWJGL · OpenGL</div>
+        </a>
+        <a class="card" href="racing-game-play.html">
+            <span class="tag">桌面游戏 · Java Swing</span>
+            <h3>飞机射击 Racing Game <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>飞机射击类游戏，含敌机、Boss、子弹、道具、粒子爆炸、波次管理、高分记录等。网页版可直接玩。</p>
+            <div class="tech">Java · Swing · 音效</div>
+        </a>
+        <a class="card" href="chise-play.html">
+            <span class="tag">桌面游戏 · libGDX</span>
+            <h3>奇斯要塞 Chise Yaosai <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>Jackal 同类型的回合制策略射击游戏，含步兵、吉普、坦克、激光、关卡和计分系统。网页版可直接玩。</p>
+            <div class="tech">Java · libGDX · Gradle</div>
+        </a>
+        <a class="card" href="chise2.html">
+            <span class="tag">桌面 / 网页游戏 · libGDX</span>
+            <h3>奇斯 2 Chise2</h3>
+            <p>奇斯要塞的升级版，在原作基础上新增了 Web 网页运行版本（GWT 编译到浏览器）。</p>
+            <div class="tech">Java · libGDX · GWT 网页版</div>
+        </a>
+    </div>
+</div>
+
+<div class="section">
+    <h2>网络应用</h2>
+    <div class="grid">
+        <a class="card" href="chat-room-java-play.html">
+            <span class="tag">网络应用 · Java Socket</span>
+            <h3>命令行聊天室 Chat Room <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>纯 Java Socket 实现的多房间聊天室，含服务端、客户端、房间管理、日志服务。网页版模拟终端可交互。</p>
+            <div class="tech">Java · Socket · 多线程</div>
+        </a>
+        <a class="card" href="web-chat-room-play.html">
+            <span class="tag">Web 应用 · Spring Boot</span>
+            <h3>Web 聊天室（Token 版） <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>带用户登录 Token、数据库存储的网页聊天室，含桌面版、移动版、后台管理和五子棋页面。网页版可登录聊天。</p>
+            <div class="tech">Spring Boot · WebSocket · H2/MySQL</div>
+        </a>
+        <a class="card" href="chat-demo.html">
+            <span class="tag">Web 前端 · STOMP</span>
+            <h3>聊天室前端 Demo</h3>
+            <p>使用 SockJS + STOMP 连接 WebSocket 后端的聊天室前端页面，本项目最初的入口页。</p>
+            <div class="tech">HTML · SockJS · STOMP.js</div>
+        </a>
+        <a class="card" href="sina-stock-play.html">
+            <span class="tag">Web 应用 · Spring Boot</span>
+            <h3>A 股实时行情 Sina Stock <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>抓取新浪财经接口的 A 股实时行情网站，支持搜索股票、查看行情，带 CSV 数据。网页版可搜索与排行。</p>
+            <div class="tech">Spring Boot · 新浪接口 · HTML</div>
+        </a>
+        <a class="card" href="api-play.html">
+            <span class="tag">后端服务 · Java</span>
+            <h3>班级 API 服务 <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>基于 Token 权限的班级学生查询服务，不同 Token 看到不同范围的学生数据。网页版可输入 Token 查询。</p>
+            <div class="tech">Java · Token 鉴权</div>
+        </a>
+        <a class="card" href="gomoku-play.html">
+            <span class="tag">Web 小游戏 · 五子棋</span>
+            <h3>五子棋 Gomoku <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>Web 聊天室对战大厅里的五子棋游戏，15×15 棋盘，四方向五连判定。网页版支持双人/人机对战。</p>
+            <div class="tech">HTML · CSS Grid · JS</div>
+        </a>
+    </div>
+</div>
+
+<div class="section">
+    <h2>学习与练习</h2>
+    <div class="grid">
+        <a class="card" href="number-play.html">
+            <span class="tag">命令行 · Java</span>
+            <h3>猜数字 Number Who <span class="play-tag">▶ 点击即玩</span></h3>
+            <p>1-50 的猜数字游戏，8 次机会，带冷却时间、存档统计（胜场、猜测历史）功能。网页版可直接玩。</p>
+            <div class="tech">Java · HTTP · JSON 存档</div>
+        </a>
+        <a class="card" href="leetcode.html">
+            <span class="tag">算法练习 · Java</span>
+            <h3>力扣题解集合</h3>
+            <p>LeetCode 算法题的 Java 题解，含石子游戏、移除可疑方法、最小回文排列、单词按键次数等。</p>
+            <div class="tech">Java · 算法 · LeetCode</div>
+        </a>
+        <a class="card" href="legacy.html">
+            <span class="tag">练习 · Java</span>
+            <h3>早期练习 旧的</h3>
+            <p>早期学习时写的练习：纯标准库实现 JSON 读写示例，以及 VSCode 配置和玩家存档文件。</p>
+            <div class="tech">Java · JSON · 配置</div>
+        </a>
+    </div>
+</div>
+
+<footer>
+    共 14 个项目 · 用 Java 与 Web 技术搭建 · 点击任意卡片进入项目详情页
+</footer>
+
+</body>
+</html>

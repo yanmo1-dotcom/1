@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猜数字 Number Who · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.play-link{display:inline-block;margin:18px 0;padding:12px 28px;border-radius:10px;background:var(--green);color:#0f1220;font-weight:700;font-size:1.05rem;text-decoration:none}.play-link:hover{filter:brightness(1.1);text-decoration:none}</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<a class="play-link" href="number-play.html">▶ 点击直接玩网页版</a>
+<h1>猜数字 Number Who</h1>
+<p class="subtitle">带冷却与存档统计的命令行猜数字游戏</p>
+<div class="meta">
+<span>类型：命令行程序</span><span>技术：Java · HTTP · JSON 存档</span><span>单文件</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一个命令行猜数字游戏。系统随机生成 1 到 50 之间的数字，玩家有 8 次机会猜中。游戏带冷却时间防止频繁请求，并且会把每局结果（胜场、总场次、猜测历史）存档到 JSON 文件，下次还能看到统计。</p>
+
+<h2>主要功能</h2>
+<ul>
+<li>数字范围 1-50，最多 8 次尝试</li>
+<li>猜测后提示「太大了」或「太小了」</li>
+<li>用 <code>AtomicLong</code> 实现冷却时间，防止过于频繁</li>
+<li>用 <code>HttpClient</code> 和文件 IO 读写 JSON 存档</li>
+<li>统计总场数、胜场、猜测历史，持久化到 <code>save_cth.json</code></li>
+</ul>
+
+<h2>运行方式</h2>
+<p>单文件，在 <code>number/</code> 目录下编译运行：</p>
+<div class="run"><code>javac -encoding UTF-8 numberwho.java<br>java number.numberwho</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>number/</code> 目录。</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>冰球游戏 Ice Game · 项目详情</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.play-link{display:inline-block;margin:18px 0;padding:12px 28px;border-radius:10px;background:var(--green);color:#0f1220;font-weight:700;font-size:1.05rem;text-decoration:none}.play-link:hover{filter:brightness(1.1);text-decoration:none}</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">← 返回作品集首页</a>
+<a class="play-link" href="ice-game-play.html">▶ 点击直接玩网页版（单人 vs AI）</a>
+<h1>冰球游戏 Ice Game</h1>
+<p class="subtitle">一个使用 Java Swing 编写的桌面冰球对战游戏</p>
+<div class="meta">
+<span>类型：桌面游戏</span><span>技术：Java 17 · Swing · Socket</span><span>构建：Maven</span>
+</div>
+
+<h2>这个文件是干什么的</h2>
+<p class="desc">这是一个冰球（Air Hockey）游戏。玩家控制球拍把球打进对方球门，先得 7 分者获胜。支持两种模式：单人模式由玩家对战电脑 AI，双人模式通过局域网联机对战。</p>
+
+<h2>主要功能</h2>
+<ul>
+<li>单人模式：玩家（左侧）对战电脑 AI（右侧）</li>
+<li>双人联机：一名玩家创建房间，另一名玩家通过房主 IP 加入</li>
+<li>先得 7 分者获胜；按 <code>R</code> 重新开始，按 <code>Esc</code> 返回菜单</li>
+<li>联机时由房主计算球的运动和比分，双方画面保持一致</li>
+</ul>
+
+<h2>操作方式</h2>
+<ul>
+<li>移动鼠标：控制自己的球拍上下移动</li>
+<li><code>W</code> / <code>S</code>：也可以控制球拍上下移动</li>
+<li>房主点击「创建房间」，把显示的本机 IPv4 地址告诉对方；对方点击「加入房间」输入 IP</li>
+<li>默认端口 <code>5050</code>，跨设备需放行防火墙并在同一局域网</li>
+</ul>
+
+<h2>运行方式</h2>
+<div class="run"><code>mvn compile exec:java</code></div>
+<p>或不用 Maven：</p>
+<div class="run"><code>javac -encoding UTF-8 -d out src/main/java/com/icegame/*.java<br>java -cp out com.icegame.Main</code></div>
+
+<p style="color:var(--text-dim);font-size:.9rem;margin-top:32px">源码位于 <code>ice-game/</code> 目录。</p>
+</div>
+</body>
+</html>

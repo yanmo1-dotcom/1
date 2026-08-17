@@ -1,0 +1,13 @@
+# Gradle
+.gradle/
+build/
+
+# Eclipse / IntelliJ 专属配置（不生成）
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+
+# VS Code 中间产物（保留 launch.json 等配置）
+bin/

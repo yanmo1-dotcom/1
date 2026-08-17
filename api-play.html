@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>班级 API 服务 · 在线演示</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .api-wrap { max-width: 880px; margin: 0 auto; padding: 20px; }
+    .api-box { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:18px; }
+    .api-box h2 { color:var(--accent); font-size:1.1rem; margin:0 0 14px; border:none; padding:0; }
+    .token-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+    .token-input {
+        flex:1; min-width:240px; background:var(--bg-soft); border:1px solid var(--border);
+        color:var(--text); padding:10px 14px; border-radius:8px; font-family:inherit; font-size:.95rem; outline:none;
+    }
+    .token-input:focus { border-color:var(--accent); }
+    .btn-query { background:var(--accent); color:#0f1220; font-weight:700; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; }
+    .btn-query:hover { filter:brightness(1.1); }
+    .token-presets { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+    .preset { background:var(--bg-soft); border:1px solid var(--border); color:var(--text-dim); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:.82rem; font-family:monospace; }
+    .preset:hover { border-color:var(--accent); color:var(--accent); }
+    .response-block {
+        background:#0a0d18; border:1px solid var(--border); border-radius:8px; padding:16px;
+        font-family:"Cascadia Code", Consolas, monospace; font-size:.85rem; color:#a8c060;
+        white-space:pre-wrap; word-break:break-all; min-height:60px; margin-top:10px;
+    }
+    .response-block.error { color:#ef4444; }
+    .meta-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+    .meta-grid div { background:var(--bg-soft); padding:8px 12px; border-radius:6px; font-size:.82rem; color:var(--text-dim); }
+    .meta-grid div b { color:var(--text); }
+    table.students { width:100%; border-collapse:collapse; margin-top:12px; font-size:.88rem; }
+    table.students th, table.students td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--border); }
+    table.students th { color:var(--text-dim); font-weight:600; }
+    .gender-m { color:var(--accent); } .gender-f { color:#e879c8; }
+    .hint { color:var(--text-dim); font-size:.85rem; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="page api-wrap">
+<a class="back" href="index.html" style="display:inline-block;margin-bottom:16px">← 返回作品集首页</a>
+<h1>班级 API 服务 · 在线演示</h1>
+<p class="subtitle">基于 Token 权限的班级学生查询 · 输入不同 Token 看到不同范围数据</p>
+<div class="meta" style="margin-bottom:18px">
+<span>原作：api/</span><span>纯前端模拟</span><span>6 条学生数据</span>
+</div>
+
+<div class="api-box">
+    <h2>1. 输入 Token 查询</h2>
+    <div class="token-presets">
+        <span class="preset" onclick="setToken('token_male_only')">token_male_only（只看男生）</span>
+        <span class="preset" onclick="setToken('token_female_only')">token_female_only（只看女生）</span>
+        <span class="preset" onclick="setToken('token_leader_admin')">token_leader_admin（管理员/全部）</span>
+        <span class="preset" onclick="setToken('hacker_token')">hacker_token（无效）</span>
+    </div>
+    <div class="token-row">
+        <input class="token-input" id="token" placeholder="输入 Token…" value="token_leader_admin">
+        <button class="btn-query" onclick="query()">查询</button>
+    </div>
+    <p class="hint">模拟 <code>GET /api/students?token=xxx</code> 接口。管理员 Token 返回全部 6 人，男生/女生 Token 各返回 3 人，无效 Token 返回 403。</p>
+    <div class="response-block" id="response">点击「查询」查看返回的 JSON…</div>
+</div>
+
+<div class="api-box">
+    <h2>2. 数据库原始数据（ClassDataStore）</h2>
+    <p class="hint">这是后端存储的全部学生数据。API 返回时只输出 id、name、gender 三个字段。</p>
+    <table class="students" id="raw-table"></table>
+</div>
+</div>
+
+<script>
+(function(){
+const STUDENTS = [
+    {id:1, name:"张三", age:20, address:"北京市海淀区中关村大街1号", gender:"male", isEnrolled:true, phoneNumber:"13800001111"},
+    {id:2, name:"李四", age:19, address:"上海市浦东新区世纪大道100号", gender:"female", isEnrolled:false, phoneNumber:"13800002222"},
+    {id:3, name:"王五", age:21, address:"广州市天河区体育西路50号", gender:"male", isEnrolled:false, phoneNumber:"13800003333"},
+    {id:4, name:"赵六", age:20, address:"深圳市南山区科技园路88号", gender:"female", isEnrolled:true, phoneNumber:"13800004444"},
+    {id:5, name:"孙七", age:22, address:"杭州市西湖区文三路20号", gender:"male", isEnrolled:false, phoneNumber:"13800005555"},
+    {id:6, name:"周八", age:19, address:"南京市鼓楼区中央路200号", gender:"female", isEnrolled:true, phoneNumber:"13800006666"},
+];
+const TOKEN_MAP = {
+    "token_male_only":"male",
+    "token_female_only":"female",
+    "token_leader_admin":null,
+};
+window.setToken = function(t){ document.getElementById("token").value = t; };
+
+function getStudentsApi(token){
+    if (!(token in TOKEN_MAP)) return "Error:403 Forbidden - Invalid Token";
+    const filter = TOKEN_MAP[token];
+    const data = filter ? STUDENTS.filter(s=>s.gender===filter) : STUDENTS;
+    const items = data.map(s=>` {"id":${s.id},"name":"${s.name}","gender":"${s.gender}"}`).join(",\n");
+    return `{\n"code":200,\n"count":${data.length},\n"data":[\n${items}\n]\n}`;
+}
+
+window.query = function(){
+    const token = document.getElementById("token").value.trim();
+    const res = getStudentsApi(token);
+    const el = document.getElementById("response");
+    el.textContent = res;
+    el.className = "response-block" + (res.startsWith("Error") ? " error" : "");
+};
+
+// 渲染原始表
+const tbl = document.getElementById("raw-table");
+tbl.innerHTML = `<tr><th>学号</th><th>姓名</th><th>年龄</th><th>性别</th><th>地址</th><th>已注册</th><th>手机号</th></tr>` +
+    STUDENTS.map(s=>`<tr><td>${s.id}</td><td>${s.name}</td><td>${s.age}</td><td class="${s.gender==='male'?'gender-m':'gender-f'}">${s.gender==='male'?'男':'女'}</td><td style="color:var(--text-dim);font-size:.82rem">${s.address}</td><td>${s.isEnrolled?'是':'否'}</td><td style="font-family:monospace;font-size:.82rem">${s.phoneNumber}</td></tr>`).join("");
+
+query();
+})();
+</script>
+</body>
+</html>

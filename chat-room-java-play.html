@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>命令行聊天室 · 在线演示</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .chat-wrap { max-width: 760px; margin: 0 auto; padding: 20px; }
+    .term {
+        background:#0c0c0c; border:1px solid #333; border-radius:10px; padding:18px;
+        font-family:"Cascadia Code", Consolas, monospace; color:#d4d4d4; font-size:.88rem;
+        min-height:480px; display:flex; flex-direction:column;
+    }
+    .term-header { color:#569cd6; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:12px; }
+    .term-out { flex:1; overflow-y:auto; max-height:420px; line-height:1.6; }
+    .term-out div { margin:2px 0; white-space:pre-wrap; word-break:break-word; }
+    .sys { color:#569cd6; } .chat { color:#d4d4d4; } .err { color:#ef4444; } .whisper { color:#c586c0; }
+    .room-list { color:#4ec9b0; }
+    .term-input-row { display:flex; gap:8px; margin-top:12px; border-top:1px solid #333; padding-top:12px; }
+    .term-input-row .prompt { color:#4ec9b0; }
+    .term-input {
+        flex:1; background:#1a1a1a; border:1px solid #333; color:#d4d4d4;
+        padding:8px 12px; border-radius:6px; font-family:inherit; font-size:.88rem; outline:none;
+    }
+    .term-input:focus { border-color:#569cd6; }
+    .side { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px; margin-top:14px; font-size:.82rem; color:var(--text-dim); }
+    .side h3 { color:var(--accent); font-size:.92rem; margin:0 0 8px; }
+    .side .cmd { color:var(--accent-2); font-family:monospace; }
+    .user-switch { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .user-btn { background:var(--bg-soft); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; cursor:pointer; font-size:.82rem; }
+    .user-btn.active { border-color:var(--accent); color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="page chat-wrap">
+<a class="back" href="index.html" style="display:inline-block;margin-bottom:14px">← 返回作品集首页</a>
+<h1>命令行聊天室 · 在线演示</h1>
+<p class="subtitle">纯 Java Socket 多房间聊天室 · 本地模拟多用户终端</p>
+<div class="meta" style="margin-bottom:14px">
+<span>原作：chat-room-java/</span><span>端口 8888（模拟）</span><span>多房间·私聊·好友</span>
+</div>
+
+<div class="side">
+    <div class="user-switch" id="user-switch"></div>
+    <h3>可用命令</h3>
+    <div><span class="cmd">/help</span> 帮助 · <span class="cmd">/list</span> 在线用户 · <span class="cmd">/room list</span> 房间列表</div>
+    <div><span class="cmd">/create &lt;房名&gt; [密码]</span> 创建房间 · <span class="cmd">/join &lt;房名&gt; [密码]</span> 加入房间</div>
+    <div><span class="cmd">/leave</span> 回到 public · <span class="cmd">/friend add &lt;用户&gt;</span> 加好友 · <span class="cmd">/whisper &lt;用户&gt; &lt;内容&gt;</span> 私聊</div>
+    <div><span class="cmd">exit</span> 断开 · 直接输入文字即房间内发言</div>
+    <p style="margin:8px 0 0;color:var(--text-dim)">提示：可在上方切换"当前用户"模拟多终端交互。</p>
+</div>
+
+<div class="term">
+    <div class="term-header">ChatRoom Server :8888 — 模拟终端（用户：<span id="cur-user">张三</span> @ public）</div>
+    <div class="term-out" id="out"></div>
+    <div class="term-input-row">
+        <span class="prompt">❯</span>
+        <input class="term-input" id="in" placeholder="输入消息或命令…" autocomplete="off">
+    </div>
+</div>
+</div>
+
+<script>
+(function(){
+// 模拟服务器状态
+const server = {
+    rooms: { "public": {password:null, members:["张三","李四","王五"]} },
+    clients: { // 用户名 -> {currentRoom, friends:Set}
+        "张三": {currentRoom:"public", friends:new Set(["李四"])},
+        "李四": {currentRoom:"public", friends:new Set(["张三"])},
+        "王五": {currentRoom:"public", friends:new Set()},
+    },
+    logs: [],
+};
+const USERS = ["张三","李四","王五"];
+let curUser = "张三";
+
+const out = document.getElementById("out");
+const input = document.getElementById("in");
+
+function print(text, cls){
+    const div = document.createElement("div");
+    if (cls) div.className = cls;
+    div.textContent = text;
+    out.appendChild(div);
+    out.scrollTop = out.scrollHeight;
+}
+function cur(){ return server.clients[curUser]; }
+function setCurUser(u){ curUser = u; document.getElementById("cur-user").textContent = u + " @ " + cur().currentRoom; renderUserSwitch(); }
+
+function renderUserSwitch(){
+    const sw = document.getElementById("user-switch");
+    sw.innerHTML = "当前终端用户：";
+    USERS.forEach(u=>{
+        const b = document.createElement("button");
+        b.className = "user-btn" + (u===curUser?" active":"");
+        b.textContent = u;
+        b.onclick = ()=>setCurUser(u);
+        sw.appendChild(b);
+    });
+}
+
+// 广播到房间（排除发送者可选）
+function broadcast(roomName, msg, exclude){
+    const room = server.rooms[roomName];
+    if (!room) return;
+    // 在演示中，所有用户共享一个终端输出，按归属显示
+    print(msg.text, msg.cls);
+    server.logs.push({time:now(), ...msg});
+}
+function now(){ return new Date().toLocaleTimeString("zh-CN",{hour12:false}); }
+
+function handleInput(raw){
+    const text = raw.trim();
+    if (!text) return;
+    print(`❯ ${text}`, "sys");
+    const c = cur();
+
+    if (text === "exit"){
+        print(`[系统] ${curUser} 已断开连接`, "sys");
+        return;
+    }
+    if (text.startsWith("/")){
+        const parts = text.split(/\s+/);
+        const cmd = parts[0];
+        if (cmd === "/help"){
+            print("可用命令：\n  /help              显示帮助\n  /list              在线用户\n  /room list         房间列表\n  /create <名> [密码]  创建房间\n  /join <名> [密码]    加入房间\n  /leave             回到 public\n  /friend add <用户>  添加好友\n  /whisper <用户> <内容> 私聊", "sys");
+        } else if (cmd === "/list"){
+            print("在线用户：" + Object.keys(server.clients).join(", "), "sys");
+        } else if (cmd === "/room" && parts[1]==="list"){
+            let s = "房间列表：\n";
+            for (const [name,r] of Object.entries(server.rooms)){
+                s += `  ${name}  (${r.members.length}人) [${r.password?"锁":"开"}]\n`;
+            }
+            print(s.trim(), "room-list");
+        } else if (cmd === "/create"){
+            const name = parts[1];
+            const pwd = parts[2];
+            if (!name){ print("[错误] 用法：/create <房间名> [密码]", "err"); return; }
+            if (!/^[\w一-龥]{1,20}$/.test(name)){ print("[错误] 房间名须为1-20位字母/数字/下划线/中文", "err"); return; }
+            if (server.rooms[name]){ print("[错误] 房间已存在", "err"); return; }
+            // 离开旧房间
+            leaveCurrent();
+            server.rooms[name] = {password: pwd||null, members:[curUser]};
+            c.currentRoom = name;
+            print(`[系统] 房间 ${name} 创建成功，你已加入`, "sys");
+            setCurUser(curUser);
+        } else if (cmd === "/join"){
+            const name = parts[1];
+            const pwd = parts[2];
+            if (!name){ print("[错误] 用法：/join <房间名> [密码]", "err"); return; }
+            const r = server.rooms[name];
+            if (!r){ print("[错误] 房间不存在", "err"); return; }
+            if (r.password && r.password !== pwd){ print("[错误] 密码错误", "err"); return; }
+            if (r.members.length >= 10){ print("[错误] 房间已满（10人）", "err"); return; }
+            leaveCurrent();
+            r.members.push(curUser);
+            c.currentRoom = name;
+            print(`[系统] 加入房间 ${name}，当前成员：${r.members.join(", ")}`, "sys");
+            setCurUser(curUser);
+        } else if (cmd === "/leave"){
+            if (c.currentRoom === "public"){ print("[错误] 你已在 public，无法离开", "err"); return; }
+            leaveCurrent();
+            server.rooms["public"].members.push(curUser);
+            c.currentRoom = "public";
+            print("[系统] 已回到 public", "sys");
+            setCurUser(curUser);
+        } else if (cmd === "/friend" && parts[1]==="add"){
+            const target = parts[2];
+            if (!target){ print("[错误] 用法：/friend add <用户名>", "err"); return; }
+            if (target === curUser){ print("[错误] 不能加自己为好友", "err"); return; }
+            if (!server.clients[target]){ print("[错误] 用户不存在或不在线", "err"); return; }
+            if (c.friends.has(target)){ print(`[系统] ${target} 已经是你的好友`, "sys"); return; }
+            c.friends.add(target);
+            server.clients[target].friends.add(curUser);
+            print(`[系统] 已添加好友 ${target}（双向）`, "sys");
+        } else if (cmd === "/whisper"){
+            const target = parts[1];
+            const content = parts.slice(2).join(" ");
+            if (!target || !content){ print("[错误] 用法：/whisper <用户名> <消息>", "err"); return; }
+            if (!c.friends.has(target)){ print(`[错误] ${target} 不是你的好友，先 /friend add ${target}`, "err"); return; }
+            print(`[我对 ${target} 说]: ${content}`, "whisper");
+            print(`（${target} 终端）[${curUser} 私语]: ${content}`, "whisper");
+        } else {
+            print("[错误] 未知命令，输入 /help 查看帮助", "err");
+        }
+    } else {
+        // 普通聊天
+        broadcast(c.currentRoom, {text:`[${c.currentRoom}] ${curUser}: ${text}`, cls:"chat"});
+    }
+}
+
+function leaveCurrent(){
+    const c = cur();
+    const r = server.rooms[c.currentRoom];
+    if (r){ r.members = r.members.filter(m=>m!==curUser); }
+    if (c.currentRoom !== "public" && server.rooms[c.currentRoom] && server.rooms[c.currentRoom].members.length===0){
+        delete server.rooms[c.currentRoom];
+    }
+}
+
+input.addEventListener("keydown", e=>{
+    if (e.key === "Enter"){ handleInput(input.value); input.value=""; }
+});
+
+// 初始化欢迎
+print("=== ChatRoom Server :8888 模拟终端 ===", "sys");
+print("[系统] 请输入昵称: 张三", "sys");
+print(`[系统] 欢迎来到聊天室，张三！你已加入 public。`, "sys");
+print(`[系统] 当前在线：张三, 李四, 王五。输入 /help 查看命令。`, "sys");
+print("", "");
+renderUserSwitch();
+input.focus();
+})();
+</script>
+</body>
+</html>

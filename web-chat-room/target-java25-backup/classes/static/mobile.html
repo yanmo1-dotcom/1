@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Web聊天室(移动版)</title>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #f0f2f5; overflow: hidden; }
+body { display: flex; flex-direction: column; height: 100dvh; }
+
+/* 登录 */
+#loginBox { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; padding: 20px; background: #f0f2f5; }
+.login-card { width: 100%; max-width: 340px; background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+.login-card h2 { text-align: center; margin-bottom: 20px; color: #333; font-size: 20px; }
+.login-card input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
+.login-card button { width: 100%; padding: 12px; background: #007bff; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+.toggle-link { text-align: center; margin-top: 14px; font-size: 14px; color: #007bff; cursor: pointer; }
+.admin-link { text-align: center; margin-top: 8px; font-size: 12px; color: #999; cursor: pointer; }
+#errorMsg { color: #e74c3c; font-size: 12px; text-align: center; margin-top: 6px; }
+
+/* 主页 */
+#appBox { display: none; flex-direction: column; height: 100%; }
+.topbar { padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; font-weight: bold; font-size: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.topbar .logout-btn { font-size: 12px; color: #dc3545; cursor: pointer; }
+
+/* tab 面板区（滚动） */
+.panel-wrap { flex: 1; overflow-y: auto; background: #fff; }
+.panel { display: none; padding: 12px; }
+.panel.active { display: block; }
+
+/* 聊天面板 */
+#panelChat { display: flex; flex-direction: column; height: 100%; padding: 0; }
+.chat-title { padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; font-weight: bold; flex-shrink: 0; }
+.msg-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: #f5f6fa; }
+.msg { max-width: 78%; padding: 8px 12px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-break: break-word; }
+.msg.self { align-self: flex-end; background: #007bff; color: #fff; border-bottom-right-radius: 2px; }
+.msg.other { align-self: flex-start; background: #fff; color: #333; border: 1px solid #e9ecef; border-bottom-left-radius: 2px; }
+.input-row { display: flex; gap: 8px; padding: 8px; background: #fff; border-top: 1px solid #eee; flex-shrink: 0; }
+.input-row input { flex: 1; padding: 10px 14px; border: 1px solid #ddd; border-radius: 20px; font-size: 15px; outline: none; }
+.input-row button { padding: 10px 18px; background: #007bff; color: #fff; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; }
+
+/* 好友面板 */
+.sec-title { font-size: 12px; color: #6c757d; font-weight: bold; margin: 10px 0 6px; }
+.input-grp { display: flex; gap: 6px; margin-bottom: 10px; }
+.input-grp input { flex: 1; padding: 9px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+.input-grp button { padding: 9px 14px; border: none; border-radius: 6px; color: #fff; font-weight: bold; cursor: pointer; }
+.btn-green { background: #28a745; }
+.btn-yellow { background: #ffc107; color: #333; }
+.list-item { padding: 12px; cursor: pointer; font-size: 14px; border-radius: 8px; display: flex; align-items: center; }
+.list-item:active { background: #e9ecef; }
+.list-item.active { background: #007bff; color: #fff; }
+.list-item .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #bbb; margin-right: 8px; flex-shrink: 0; }
+.list-item .online-dot.on { background: #28a745; }
+.list-item.active .online-dot.on { background: #7dffb0; }
+.empty-tip { padding: 16px; color: #999; font-size: 12px; text-align: center; }
+.fr-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; margin-bottom: 4px; background: #fff; border: 1px solid #e9ecef; border-radius: 6px; font-size: 13px; }
+.fr-item .req-actions { display: flex; gap: 4px; }
+.fr-item button { padding: 4px 8px; border: none; border-radius: 4px; color: #fff; font-size: 12px; cursor: pointer; }
+.btn-accept { background: #28a745; }
+.btn-reject { background: #dc3545; }
+.req-badge { background: #dc3545; color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 10px; margin-left: 6px; }
+
+/* 对战面板 */
+.gt-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.gt-btn { padding: 6px 12px; border: 1px solid #ccc; background: #fff; border-radius: 6px; font-size: 12px; color: #333; cursor: pointer; }
+.gt-btn.active { background: #6f42c1; color: #fff; border-color: #6f42c1; }
+.btn-purple { background: #6f42c1; }
+.btn-orange { background: #fd7e14; }
+.room-item { padding: 10px; margin-bottom: 6px; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.room-item button { padding: 6px 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+.full-btn { width: 100%; padding: 10px; border: none; border-radius: 6px; color: #fff; cursor: pointer; margin-bottom: 6px; font-size: 14px; }
+.game-entry-btn { width: 100%; padding: 10px; border: none; border-radius: 6px; color: #fff; cursor: pointer; margin-bottom: 6px; font-size: 14px; text-align: left; }
+
+/* 我的面板 */
+.me-card { text-align: center; padding: 24px 16px; background: #fff; border-radius: 12px; margin-bottom: 12px; }
+.me-card .me-name { font-size: 18px; font-weight: bold; margin-bottom: 6px; }
+.me-card .me-id { font-size: 12px; color: #999; }
+.me-btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; margin-bottom: 8px; }
+.me-logout { background: #dc3545; color: #fff; }
+.me-stat { display: inline-block; padding: 4px 10px; margin: 3px; background: #f0f2f5; border-radius: 6px; font-size: 12px; }
+
+/* 底部 tab 栏 */
+.tabbar { display: flex; background: #fff; border-top: 1px solid #eee; flex-shrink: 0; }
+.tabbar .tab { flex: 1; text-align: center; padding: 8px 0 6px; cursor: pointer; color: #888; font-size: 11px; }
+.tabbar .tab .tab-icon { font-size: 20px; }
+.tabbar .tab.active { color: #007bff; }
+
+/* 五子棋全屏层 */
+#gomokuLayer { display: none; position: fixed; inset: 0; z-index: 100; flex-direction: column; background: #f5f6fa; }
+.gm-header { padding: 10px 14px; background: #6f42c1; color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.gm-header .gm-title { font-weight: bold; font-size: 15px; }
+.gm-header .gm-rid { font-size: 11px; opacity: .85; }
+.gm-players { display: flex; justify-content: center; gap: 16px; padding: 8px; flex-shrink: 0; }
+.gm-player { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; background: #fff; border: 2px solid #eee; font-size: 13px; }
+.gm-player.turn { border-color: #28a745; }
+.gm-stone { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
+.gm-stone.black { background: #222; }
+.gm-stone.white { background: #fff; border: 1px solid #999; }
+.gm-status { text-align: center; padding: 4px; font-size: 13px; color: #555; flex-shrink: 0; }
+.gm-board-wrap { flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto; padding: 6px; }
+.gm-board { display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(15, 1fr); background: #dcb35c; padding: 4px; border-radius: 6px; width: min(94vw, 560px); height: min(94vw, 560px); }
+.gm-cell { border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; }
+.gm-cell:active:not(:disabled) { background: rgba(255,255,255,.2); }
+.gm-cell:disabled { cursor: default; }
+.gm-cell .piece { width: 84%; height: 84%; border-radius: 50%; }
+.gm-cell .piece.black { background: #111; }
+.gm-cell .piece.white { background: #fff; border: 1px solid #ccc; }
+.gm-cell.last::after { content: ''; position: absolute; width: 24%; height: 24%; background: #e84118; border-radius: 50%; }
+.gm-ready-row { display: flex; justify-content: center; gap: 8px; padding: 6px; flex-shrink: 0; }
+.gm-ready-row button { padding: 8px 24px; border: none; border-radius: 8px; background: #6c5ce7; color: #fff; font-size: 14px; cursor: pointer; }
+.gm-result { text-align: center; padding: 8px; font-size: 16px; font-weight: bold; flex-shrink: 0; }
+.gm-actions { display: flex; justify-content: center; gap: 10px; padding: 8px; flex-shrink: 0; }
+.gm-actions button { padding: 8px 20px; border: none; border-radius: 8px; background: #dc3545; color: #fff; font-size: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- 登录 -->
+<div id="loginBox">
+    <div class="login-card">
+        <h2 id="loginTitle">用户登录</h2>
+        <input type="text" id="username" placeholder="用户名">
+        <input type="password" id="password" placeholder="密码">
+        <button id="authBtn">登录</button>
+        <div class="toggle-link" id="toggleLink">没有账号？去注册</div>
+        <div class="admin-link" id="adminLink">管理员重置密码</div>
+        <div id="errorMsg"></div>
+    </div>
+</div>
+
+<!-- 主页 -->
+<div id="appBox">
+    <div class="topbar">
+        <span id="topTitle">Web聊天室</span>
+        <span class="logout-btn" id="topLogout">退出</span>
+    </div>
+    <div class="panel-wrap" id="panelWrap">
+        <!-- 聊天 -->
+        <div class="panel" id="panelChat">
+            <div class="chat-title" id="chatTitle">公共大厅</div>
+            <div class="msg-area" id="msgArea"></div>
+            <div class="input-row">
+                <input type="text" id="msgInput" placeholder="输入消息...">
+                <button id="sendBtn">发送</button>
+            </div>
+        </div>
+        <!-- 好友 -->
+        <div class="panel" id="panelFriends">
+            <div class="sec-title">添加好友</div>
+            <div class="input-grp"><input type="text" id="newFriendName" placeholder="输入用户名"><button class="btn-green" id="addFriendBtn">+</button></div>
+            <div class="sec-title">好友列表</div>
+            <div id="friendList"></div>
+            <div class="sec-title">好友申请<span id="reqCount" class="req-badge" style="display:none;">0</span></div>
+            <div id="friendRequestList"></div>
+            <div class="sec-title">创建/加入群组</div>
+            <div class="input-grp"><input type="text" id="newGroupName" placeholder="输入群名"><button class="btn-yellow" id="joinGroupBtn">+</button></div>
+            <div class="sec-title">群组列表</div>
+            <div id="groupList"></div>
+        </div>
+        <!-- 对战 -->
+        <div class="panel" id="panelGame">
+            <div class="sec-title">选择游戏</div>
+            <div class="gt-row">
+                <button class="gt-btn active" data-gt="GOMOKU">五子棋</button>
+                <button class="gt-btn" data-gt="RPS_1V1">RPS单挑</button>
+                <button class="gt-btn" data-gt="RPS_FFA">RPS乱斗</button>
+                <button class="gt-btn" data-gt="GUESS_NUMBER">猜数字</button>
+            </div>
+            <div class="input-grp">
+                <input type="text" id="gameRoomPwd" placeholder="房间密码(可选)">
+                <button class="btn-purple" id="createRoomBtn">开房</button>
+                <button class="btn-orange" id="quickMatchBtn">匹配</button>
+            </div>
+            <button class="game-entry-btn btn-purple" id="profileBtn">我的竞技档案</button>
+            <button class="game-entry-btn btn-purple" id="historyBtn">我的战绩</button>
+            <button class="game-entry-btn btn-purple" id="rulesBtn">积分规则</button>
+            <div class="sec-title">开放房间</div>
+            <div id="gameRoomList"></div>
+        </div>
+        <!-- 我的 -->
+        <div class="panel" id="panelMe">
+            <div class="me-card">
+                <div class="me-name" id="meName">用户</div>
+                <div class="me-id" id="meId"></div>
+            </div>
+            <button class="me-btn" id="meProfileBtn" style="background:#6f42c1;color:#fff;">查看竞技档案</button>
+            <button class="me-btn" id="meHistoryBtn" style="background:#17a2b8;color:#fff;">查看战绩</button>
+            <button class="me-logout me-btn" id="meLogoutBtn">退出登录</button>
+        </div>
+    </div>
+    <div class="tabbar">
+        <div class="tab active" data-tab="panelChat"><div class="tab-icon">💬</div>聊天</div>
+        <div class="tab" data-tab="panelFriends"><div class="tab-icon">👥</div>好友</div>
+        <div class="tab" data-tab="panelGame"><div class="tab-icon">⚔️</div>对战</div>
+        <div class="tab" data-tab="panelMe"><div class="tab-icon">👤</div>我的</div>
+    </div>
+</div>
+
+<!-- 五子棋全屏层 -->
+<div id="gomokuLayer">
+    <div class="gm-header">
+        <span class="gm-title">⚫ 五子棋对局</span>
+        <span class="gm-rid" id="gmRoomId"></span>
+    </div>
+    <div class="gm-players" id="gmPlayers"></div>
+    <div class="gm-status" id="gmStatus">连接中...</div>
+    <div class="gm-ready-row" id="gmReadyRow"><button id="gmReadyBtn">准备</button></div>
+    <div class="gm-board-wrap"><div class="gm-board" id="gmBoard"></div></div>
+    <div class="gm-result" id="gmResult"></div>
+    <div class="gm-actions"><button id="gmLeaveBtn">离开/弃赛</button></div>
+</div>
+
+<script>
+(function(){
+const BASE_URL = window.location.origin;
+const API = `${BASE_URL}/api`;
+const WS_URL = `${BASE_URL}/ws`;
+
+let currentId = window.location.hash.substring(1);
+let isLoginMode = true;
+const TOKEN_KEY = `myToken_${currentId || 'temp'}`;
+const USER_KEY = `currentUser_${currentId || 'temp'}`;
+const LOGINTIME_KEY = `loginTime_${currentId || 'temp'}`;
+let currentToken = localStorage.getItem(TOKEN_KEY);
+let myLoginTime = Number(localStorage.getItem(LOGINTIME_KEY)) || 0;
+let isManualLogout = false;
+let selectedGameType = 'GOMOKU';
+let myReady = false;
+let lobbySubs = { messages: null, users: null };
+
+const state = {
+    currentUser: null, stompClient: null,
+    activeFriendId: null, activeGroupId: null, isLobbyMode: false,
+    isGameMode: false, activeGameRoomId: null, currentGame: null,
+    subscribedGroups: new Set(), subscribedGames: new Set(),
+    friendsData: [], groupsData: [], onlineFriendIds: new Set(),
+    friendRequests: [], gomokuActive: false
+};
+
+const $ = id => document.getElementById(id);
+
+/* ========== 工具 ========== */
+async function fetchWithToken(url, options = {}) {
+    return fetch(url, {...options, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` }});
+}
+function appendMessage(content, isSelf) {
+    const area = $('msgArea');
+    if (area.querySelector('.empty-tip')) area.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = `msg ${isSelf ? 'self' : 'other'}`;
+    div.innerText = content;
+    area.appendChild(div);
+    area.scrollTop = area.scrollHeight;
+}
+function clearMessageArea() { $('msgArea').innerHTML = '<div class="empty-tip">暂无消息记录</div>'; }
+
+/* ========== 登录 ========== */
+function toggleMode() {
+    isLoginMode = !isLoginMode;
+    $('loginTitle').innerText = isLoginMode ? '用户登录' : '用户注册';
+    $('authBtn').innerText = isLoginMode ? '登录' : '注册';
+    $('toggleLink').innerText = isLoginMode ? '没有账号？去注册' : '已有账号？去登录';
+    $('errorMsg').innerText = '';
+}
+async function handleAuth() {
+    const username = $('username').value.trim();
+    const password = $('password').value.trim();
+    if (!username || !password) { $('errorMsg').innerText = '请输入用户名和密码'; return; }
+    const endpoint = isLoginMode ? '/login' : '/register';
+    try {
+        const res = await fetch(`${API}${endpoint}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({username, password}) });
+        const data = await res.json();
+        if (data.code === 200) {
+            if (isLoginMode) {
+                const realUserId = String(data.user.id);
+                localStorage.setItem(`myToken_${realUserId}`, data.token);
+                localStorage.setItem(`currentUser_${realUserId}`, JSON.stringify(data.user));
+                localStorage.setItem(`loginTime_${realUserId}`, String(data.loginTime || Date.now()));
+                if (currentId !== realUserId) { window.location.hash = realUserId; location.reload(); return; }
+                currentToken = data.token;
+                state.currentUser = data.user;
+                if (!state.currentUser.groups) state.currentUser.groups = [];
+                myLoginTime = data.loginTime || Date.now();
+                localStorage.setItem(LOGINTIME_KEY, String(myLoginTime));
+                showApp();
+                loadInitialData().then(() => setTimeout(() => switchToLobby(), 300));
+            } else { alert('注册成功！请登录'); toggleMode(); }
+            $('errorMsg').innerText = '';
+        } else { $('errorMsg').innerText = data.msg; }
+    } catch(e) { $('errorMsg').innerText = '网络错误'; }
+}
+function logout() {
+    isManualLogout = true;
+    if (state.stompClient && state.currentUser) {
+        try { state.stompClient.send("/app/lobby.leave", {}, JSON.stringify({ username: state.currentUser.username })); } catch(e){}
+    }
+    if (currentId) {
+        localStorage.removeItem(`myToken_${currentId}`);
+        localStorage.removeItem(`currentUser_${currentId}`);
+        localStorage.removeItem(`loginTime_${currentId}`);
+    }
+    window.location.hash = '';
+    location.reload();
+}
+function showApp() {
+    $('loginBox').style.display = 'none';
+    $('appBox').style.display = 'flex';
+    $('meName').innerText = state.currentUser.username;
+    $('meId').innerText = 'ID: ' + state.currentUser.id;
+    $('topTitle').innerText = state.currentUser.username;
+}
+
+/* ========== 数据加载 ========== */
+async function loadInitialData() {
+    const [fRes, gRes, onlineRes, reqRes] = await Promise.all([
+        fetchWithToken(`${API}/friends`), fetchWithToken(`${API}/my-groups`),
+        fetchWithToken(`${API}/friends/online`), fetchWithToken(`${API}/friend/requests`)
+    ]);
+    const fData = await fRes.json(), gData = await gRes.json();
+    const onlineData = await onlineRes.json(), reqData = await reqRes.json();
+    if (fData.code === 200) { state.friendsData = fData.data || []; renderFriendsList(); }
+    if (gData.code === 200) { state.groupsData = gData.data || []; if (gData.data) state.currentUser.groups = gData.data; renderGroupsList(); }
+    if (onlineData.code === 200) { state.onlineFriendIds = new Set((onlineData.data||[]).map(String)); renderFriendsList(); }
+    if (reqData.code === 200) { state.friendRequests = reqData.data || []; renderFriendRequests(); }
+    refreshGameRooms();
+}
+function renderFriendsList() {
+    const list = $('friendList'); list.innerHTML = '';
+    const friends = state.friendsData || [];
+    if (!friends.length) { list.innerHTML = '<div class="empty-tip">暂无好友</div>'; return; }
+    friends.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'list-item' + (state.activeFriendId === f.id ? ' active' : '');
+        const online = state.onlineFriendIds.has(String(f.id));
+        div.innerHTML = `<span class="online-dot ${online?'on':''}"></span><span>${f.username}</span>`;
+        div.onclick = () => selectFriend(f.id, f.username);
+        list.appendChild(div);
+    });
+}
+function renderGroupsList() {
+    const list = $('groupList'); list.innerHTML = '';
+    const groups = state.groupsData || [];
+    if (!groups.length) { list.innerHTML = '<div class="empty-tip">暂无群组</div>'; return; }
+    groups.forEach(g => {
+        const div = document.createElement('div');
+        div.className = 'list-item' + (state.activeGroupId ? ' active' : '');
+        const gname = (typeof g === 'object' && g) ? (g.name||g.groupName||'未知群') : String(g);
+        const gid = (typeof g === 'object' && g) ? (g.id||g.groupId||gname) : String(g);
+        div.innerText = '👥 ' + gname;
+        div.onclick = () => selectGroup(String(gid), gname);
+        list.appendChild(div);
+    });
+}
+function renderFriendRequests() {
+    const list = $('friendRequestList'); const badge = $('reqCount');
+    const reqs = state.friendRequests || [];
+    if (!reqs.length) { list.innerHTML = '<div class="empty-tip">暂无申请</div>'; badge.style.display = 'none'; return; }
+    badge.style.display = 'inline-block'; badge.innerText = reqs.length;
+    list.innerHTML = '';
+    reqs.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'fr-item';
+        div.innerHTML = `<span>${r.fromName}</span><span class="req-actions"><button class="btn-accept" data-id="${r.id}" data-act="accept">同意</button><button class="btn-reject" data-id="${r.id}" data-act="reject">拒绝</button></span>`;
+        list.appendChild(div);
+    });
+}
+async function handleFriendRequest(requestId, action) {
+    try {
+        const res = await fetchWithToken(`${API}/friend/handle`, { method:'POST', body: JSON.stringify({ requestId, action }) });
+        const data = await res.json();
+        if (data.code === 200) loadInitialData(); else alert(data.msg || '操作失败');
+    } catch(e) { alert('网络错误'); }
+}
+async function addFriend() {
+    const name = $('newFriendName').value.trim(); if (!name) return;
+    const res = await fetchWithToken(`${API}/friend/request?toUsername=${encodeURIComponent(name)}`, {method:'POST'});
+    const data = await res.json(); alert(data.msg);
+    if (data.code === 200) $('newFriendName').value = '';
+}
+async function joinGroup() {
+    const name = $('newGroupName').value.trim(); if (!name) return;
+    const res = await fetchWithToken(`${API}/join-group?groupName=${encodeURIComponent(name)}`, {method:'POST'});
+    const data = await res.json(); alert(data.msg);
+    if (data.code === 200) { $('newGroupName').value = ''; loadInitialData(); }
+}
+
+/* ========== 聊天视图切换 ========== */
+function switchTab(tabId) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    $(tabId).classList.add('active');
+    document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+    if (tabId === 'panelChat') {
+        if (!state.isLobbyMode && !state.activeFriendId && !state.activeGroupId) switchToLobby();
+    }
+}
+async function switchToLobby() {
+    state.isLobbyMode = true; state.activeFriendId = null; state.activeGroupId = null;
+    document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+    $('chatTitle').innerText = '公共大厅';
+    clearMessageArea();
+    if (state.stompClient && state.stompClient.connected) setupLobbySubscriptions();
+    try {
+        const res = await fetchWithToken(`${API}/messages/lobby`);
+        const data = await res.json();
+        if (data.code === 200 && data.data) data.data.forEach(m => {
+            const isSelf = m.senderId === state.currentUser.id;
+            appendMessage(isSelf ? `[我] ${m.content}` : `[${m.senderName}] ${m.content}`, isSelf);
+        });
+    } catch(e) {}
+}
+function setupLobbySubscriptions() {
+    if (!state.stompClient) return;
+    state.stompClient.send("/app/lobby.send", {}, JSON.stringify({ userId: state.currentUser.id, loginTime: myLoginTime, username: state.currentUser.username, content: "", timestamp: Date.now() }));
+    if (!lobbySubs.messages) {
+        lobbySubs.messages = state.stompClient.subscribe('/topic/lobby/messages', function(message) {
+            const msg = JSON.parse(message.body);
+            if (!msg.content) return;
+            if (msg.senderName === state.currentUser.username) return;
+            if (state.isLobbyMode) appendMessage(`[${msg.senderName}] ${msg.content}`, false);
+        });
+    }
+    if (!lobbySubs.users) {
+        lobbySubs.users = state.stompClient.subscribe('/topic/lobby/users', function(message) {
+            const users = JSON.parse(message.body);
+            if (state.isLobbyMode) {}
+        });
+    }
+}
+async function selectFriend(id, name) {
+    state.isLobbyMode = false; state.activeFriendId = id; state.activeGroupId = null;
+    switchTab('panelChat');
+    document.querySelectorAll('#friendList .list-item').forEach(el => el.classList.remove('active'));
+    $('chatTitle').innerText = `与 ${name} 私聊`;
+    clearMessageArea();
+    try {
+        const res = await fetchWithToken(`${API}/messages/private?friendId=${id}`);
+        const data = await res.json();
+        if (data.code === 200 && data.data) data.data.forEach(m => {
+            const isSelf = m.senderId === state.currentUser.id;
+            appendMessage(isSelf ? m.content : `${name}: ${m.content}`, isSelf);
+        });
+    } catch(e) {}
+    $('msgInput').focus();
+}
+async function selectGroup(groupId, name) {
+    state.isLobbyMode = false; state.activeGroupId = String(groupId); state.activeFriendId = null;
+    switchTab('panelChat');
+    $('chatTitle').innerText = `群聊: ${name}`;
+    clearMessageArea();
+    subscribeToGroup(String(groupId));
+    try {
+        const res = await fetchWithToken(`${API}/messages/group?groupId=${encodeURIComponent(groupId)}`);
+        const data = await res.json();
+        if (data.code === 200 && data.data) data.data.forEach(m => {
+            const isSelf = m.senderId === state.currentUser.id;
+            appendMessage(isSelf ? `[我] ${m.content}` : `[${m.senderName}] ${m.content}`, isSelf);
+        });
+    } catch(e) {}
+}
+function subscribeToGroup(groupId) {
+    if (!state.stompClient || !state.stompClient.connected) return;
+    if (state.subscribedGroups.has(groupId)) return;
+    state.stompClient.subscribe(`/topic/group/${groupId}`, function(message) {
+        try {
+            const msg = JSON.parse(message.body);
+            if (msg.senderName === state.currentUser.username) return;
+            if (state.activeGroupId === groupId && !state.isLobbyMode) appendMessage(`[${msg.senderName}] ${msg.content}`, false);
+        } catch(e) {}
+    });
+    state.subscribedGroups.add(groupId);
+}
+function sendMsg() {
+    const input = $('msgInput'); const content = input.value.trim();
+    if (!content || !state.stompClient) return;
+    if (state.isLobbyMode) {
+        state.stompClient.send("/app/lobby.send", {}, JSON.stringify({ userId: state.currentUser.id, loginTime: myLoginTime, username: state.currentUser.username, content, timestamp: Date.now() }));
+        appendMessage(`[我] ${content}`, true);
+    } else if (state.activeGroupId) {
+        state.stompClient.send("/app/chat.group", {}, JSON.stringify({ groupId: state.activeGroupId, senderId: state.currentUser.id, loginTime: myLoginTime, content, senderName: state.currentUser.username, timestamp: Date.now() }));
+        appendMessage(`[我] ${content}`, true);
+    } else if (state.activeFriendId) {
+        state.stompClient.send("/app/chat.private", {}, JSON.stringify({ senderId: state.currentUser.id, loginTime: myLoginTime, receiverId: state.activeFriendId, content, timestamp: Date.now() }));
+        appendMessage(content, true);
+    }
+    input.value = ''; input.focus();
+}
+
+/* ========== WebSocket 连接 ========== */
+function connectWebSocket() {
+    if (!currentToken || !state.currentUser) return;
+    const socketUrl = `${WS_URL}?userId=${state.currentUser.id}&loginTime=${myLoginTime}`;
+    const socket = new SockJS(socketUrl);
+    state.stompClient = Stomp.over(socket);
+    state.stompClient.debug = null;
+    socket.onclose = function() {
+        if (!isManualLogout && $('appBox').style.display !== 'none') { alert("连接已断开，请重新登录"); logout(); }
+    };
+    state.stompClient.connect({}, function() {
+        setTimeout(() => {
+            state.stompClient.subscribe('/user/queue/kickoff', function(message) {
+                let kickTime = 0;
+                try { const o = JSON.parse(message.body); kickTime = Number(o.loginTime) || 0; } catch(e) {}
+                if (kickTime && kickTime === myLoginTime) return;
+                alert("您的账号已在其他设备登录，您已被强制下线！"); logout();
+            });
+            state.stompClient.subscribe('/user/queue/friend-request', function(message) {
+                try { const o = JSON.parse(message.body); loadFriendRequests(); if (o.fromName) alert(`收到 ${o.fromName} 的好友申请`); } catch(e) {}
+            });
+            state.stompClient.subscribe('/user/queue/friend-result', function(message) {
+                try { const o = JSON.parse(message.body);
+                    if (o.action === 'accept') { alert('好友申请已同意'); loadInitialData(); } else alert('好友申请被拒绝');
+                } catch(e) {}
+            });
+            state.stompClient.subscribe('/user/queue/presence', function(message) {
+                try { const o = JSON.parse(message.body);
+                    if (o.online) state.onlineFriendIds.add(String(o.userId)); else state.onlineFriendIds.delete(String(o.userId));
+                    renderFriendsList();
+                } catch(e) {}
+            });
+            state.stompClient.subscribe(`/topic/user/${state.currentUser.id}/reply`, function(message) {
+                const msg = JSON.parse(message.body);
+                if (!state.isLobbyMode && state.activeFriendId && msg.senderId == state.activeFriendId) appendMessage(msg.content, false);
+            });
+            state.stompClient.subscribe('/user/queue/game-matched', function(message) {
+                try { const o = JSON.parse(message.body);
+                    if (selectedGameType === 'GOMOKU' || o.gameType === 'GOMOKU') { alert('匹配成功！进入五子棋对局'); openGomokuGame(o.roomId); }
+                    else { alert('匹配成功！房间：' + o.roomId); }
+                    refreshGameRooms();
+                } catch(e) {}
+            });
+            state.stompClient.subscribe('/user/queue/game-finished', function(message) {
+                try { const o = JSON.parse(message.body);
+                    let txt = o.result === 'WIN' ? '胜利' : (o.result === 'DRAW' ? '平局' : '失败');
+                    alert(`对局结束：${txt}，积分 ${o.rankPoints}`);
+                    closeGomokuGame();
+                    refreshGameRooms();
+                } catch(e) {}
+            });
+            state.stompClient.subscribe('/user/queue/game-error', function(message) {
+                try { const o = JSON.parse(message.body); if (state.gomokuActive) alert('非法操作：' + (o.msg || '落子失败')); } catch(e) {}
+            });
+            if (state.currentUser.groups && state.currentUser.groups.length) {
+                state.currentUser.groups.forEach(g => {
+                    const gid = (typeof g === 'object' && g) ? (g.id||g.groupId||g.name) : String(g);
+                    subscribeToGroup(String(gid), true);
+                });
+            }
+            if (state.isLobbyMode) setupLobbySubscriptions();
+        }, 100);
+    }, function(error) { setTimeout(connectWebSocket, 3000); });
+}
+async function loadFriendRequests() {
+    try { const res = await fetchWithToken(`${API}/friend/requests`); const data = await res.json();
+        if (data.code === 200) { state.friendRequests = data.data || []; renderFriendRequests(); }
+    } catch(e) {}
+}
+
+/* ========== 对战 ========== */
+const GAME_TYPE_NAMES = { 'TIC_TAC_TOE':'井字棋','GOMOKU':'五子棋','RPS_1V1':'RPS单挑','RPS_FFA':'RPS乱斗','GUESS_NUMBER':'猜数字' };
+async function refreshGameRooms() {
+    try {
+        const res = await fetchWithToken(`${API}/game/rooms`); const data = await res.json();
+        const list = $('gameRoomList');
+        if (data.code !== 200 || !data.data || !data.data.length) { list.innerHTML = '<div class="empty-tip">暂无开放房间</div>'; return; }
+        list.innerHTML = '';
+        data.data.forEach(r => {
+            const gname = GAME_TYPE_NAMES[r.gameType] || r.gameType;
+            const div = document.createElement('div');
+            div.className = 'room-item';
+            div.innerHTML = `<span>${r.locked?'🔒':'🔓'} [${gname}] ${r.hostName} (${r.seated}/${r.capacity})</span><button data-rid="${r.roomId}" data-gt="${r.gameType}">加入</button>`;
+            list.appendChild(div);
+        });
+    } catch(e) {}
+}
+async function createGameRoom() {
+    const pwd = $('gameRoomPwd').value.trim() || null;
+    try {
+        const res = await fetchWithToken(`${API}/game/rooms`, { method:'POST', body: JSON.stringify({ password: pwd, gameType: selectedGameType }) });
+        const data = await res.json();
+        if (data.code === 200) {
+            if (selectedGameType === 'GOMOKU') openGomokuGame(data.data.roomId);
+            refreshGameRooms();
+        } else alert(data.msg || '创建失败');
+    } catch(e) { alert('网络错误'); }
+}
+async function joinGameRoom(roomId, gameType) {
+    const pwd = prompt('房间密码（无则留空）：') || null;
+    try {
+        const res = await fetchWithToken(`${API}/game/rooms/${roomId}/join`, { method:'POST', body: JSON.stringify({ password: pwd }) });
+        const data = await res.json();
+        if (data.code === 200) { if (gameType === 'GOMOKU') openGomokuGame(roomId); refreshGameRooms(); }
+        else alert(data.msg || '加入失败');
+    } catch(e) { alert('网络错误'); }
+}
+async function quickMatch() {
+    try {
+        const res = await fetchWithToken(`${API}/game/match`, { method:'POST', body: JSON.stringify({ gameType: selectedGameType }) });
+        const data = await res.json();
+        if (data.code === 200) {
+            if (selectedGameType === 'GOMOKU') { alert('匹配成功！进入五子棋对局'); openGomokuGame(data.data.roomId); }
+            else alert('匹配成功！');
+            refreshGameRooms();
+        } else if (data.code === 202) alert('已进入匹配队列，等待对手...');
+        else alert(data.msg || '匹配失败');
+    } catch(e) { alert('网络错误'); }
+}
+function sendGameAction(actionType, payload) {
+    if (!state.stompClient || !state.activeGameRoomId) return;
+    state.stompClient.send("/app/game.action", {}, JSON.stringify({ roomId: state.activeGameRoomId, actionType, payload, loginTime: myLoginTime }));
+}
+
+/* ========== 五子棋同页全屏对弈 ========== */
+function openGomokuGame(roomId) {
+    state.gomokuActive = true;
+    state.activeGameRoomId = roomId;
+    state.isGameMode = true;
+    subscribeToGame(roomId);
+    $('gomokuLayer').style.display = 'flex';
+    $('appBox').style.display = 'none';
+    $('gmRoomId').innerText = '房间 ' + roomId;
+    $('gmStatus').innerText = '加载中...';
+    $('gmResult').innerText = '';
+    $('gmReadyRow').style.display = 'flex';
+    myReady = false;
+    $('gmReadyBtn').innerText = '准备';
+    // 拉取房间详情
+    fetchWithToken(`${API}/game/rooms/${roomId}`).then(r => r.json()).then(data => {
+        if (data.code === 200 && data.data) {
+            state.currentGame = data.data;
+            myReady = (data.data.readyPlayers || []).includes(state.currentUser.id);
+            $('gmReadyBtn').innerText = myReady ? '取消准备' : '准备';
+            renderGomokuState(data.data);
+        }
+    }).catch(()=>{});
+}
+function closeGomokuGame() {
+    state.gomokuActive = false;
+    state.activeGameRoomId = null;
+    state.isGameMode = false;
+    state.currentGame = null;
+    myReady = false;
+    $('gomokuLayer').style.display = 'none';
+    $('appBox').style.display = 'flex';
+}
+function subscribeToGame(roomId) {
+    if (!state.stompClient || !state.stompClient.connected) return;
+    if (state.subscribedGames.has(roomId)) return;
+    state.stompClient.subscribe(`/topic/game/${roomId}/state`, function(message) {
+        try { const o = JSON.parse(message.body);
+            if (state.activeGameRoomId === roomId) { state.currentGame = Object.assign({}, state.currentGame || {}, o); renderGomokuState(o); }
+        } catch(e) {}
+    });
+    state.stompClient.subscribe(`/topic/game/${roomId}/roster`, function(message) {
+        try { const o = JSON.parse(message.body);
+            if (state.activeGameRoomId === roomId && state.currentGame) { state.currentGame.players = o.players || state.currentGame.players; state.currentGame.state = o.state || state.currentGame.state; renderGomokuState(state.currentGame); }
+        } catch(e) {}
+    });
+    state.stompClient.subscribe(`/topic/game/${roomId}/ready`, function(message) {
+        try { const o = JSON.parse(message.body);
+            if (state.activeGameRoomId === roomId && state.currentGame) { state.currentGame.readyPlayers = o.readyPlayers || []; state.currentGame.state = o.state || state.currentGame.state; myReady = state.currentGame.readyPlayers.includes(state.currentUser.id); $('gmReadyBtn').innerText = myReady ? '取消准备' : '准备'; renderGomokuState(state.currentGame); }
+        } catch(e) {}
+    });
+    state.stompClient.subscribe(`/topic/game/${roomId}/finished`, function(message) {
+        try { const o = JSON.parse(message.body);
+            if (state.activeGameRoomId === roomId) renderGomokuResult(o);
+        } catch(e) {}
+    });
+    state.subscribedGames.add(roomId);
+}
+function renderGomokuState(o) {
+    const g = state.currentGame || o;
+    if (!g) return;
+    const me = state.currentUser.id;
+    const players = g.players || [];
+    const mySeat = players.indexOf(me);
+    const myMark = mySeat === 0 ? 'black' : (mySeat === 1 ? 'white' : '');
+    const oppId = players.find(p => p !== me);
+    const oppSeat = players.indexOf(oppId);
+    const oppMark = oppSeat === 0 ? 'black' : (oppSeat === 1 ? 'white' : '');
+    const myTurn = g.currentTurnPlayerId === me;
+    // 玩家信息
+    const box = $('gmPlayers'); box.innerHTML = '';
+    box.appendChild(makeGmPlayer('我', myMark, myTurn));
+    if (oppId !== undefined) box.appendChild(makeGmPlayer('对手', oppMark, !myTurn));
+    // 状态
+    if (g.state === 'WAITING') $('gmStatus').innerText = `等待准备 ${(players.length)}/2 人`;
+    else if (g.state === 'READY') $('gmStatus').innerText = '全员就绪，即将开始...';
+    else if (g.state === 'PLAYING') $('gmStatus').innerText = myTurn ? '轮到你落子' : '对手思考中...';
+    else $('gmStatus').innerText = '对局已结束';
+    // 棋盘
+    renderGomokuBoard(g);
+}
+function makeGmPlayer(name, mark, turn) {
+    const d = document.createElement('div');
+    d.className = 'gm-player' + (turn ? ' turn' : '');
+    d.innerHTML = `<span class="gm-stone ${mark}"></span><span>${name}${turn?' ●':''}</span>`;
+    return d;
+}
+function renderGomokuBoard(g) {
+    const board = $('gmBoard'); board.innerHTML = '';
+    const b = g.board || emptyBoard();
+    const playing = g.state === 'PLAYING';
+    const myTurn = playing && g.currentTurnPlayerId === state.currentUser.id;
+    const last = g.lastMove;
+    for (let r = 0; r < 15; r++) {
+        for (let c = 0; c < 15; c++) {
+            const cell = document.createElement('button');
+            cell.className = 'gm-cell';
+            const v = b[r][c];
+            if (v !== 0) {
+                const p = document.createElement('span');
+                p.className = 'piece ' + (v === 1 ? 'black' : 'white');
+                cell.appendChild(p); cell.disabled = true;
+                if (last && last[0] === r && last[1] === c) cell.classList.add('last');
+            } else {
+                if (myTurn) cell.onclick = () => sendGameAction('GOMOKU_MOVE', [r, c]);
+                else cell.disabled = true;
+            }
+            board.appendChild(cell);
+        }
+    }
+}
+function emptyBoard() { const b = []; for (let i = 0; i < 15; i++) b.push(new Array(15).fill(0)); return b; }
+function renderGomokuResult(o) {
+    const res = o.result;
+    const txt = res === 'WIN' ? '胜利！' : (res === 'DRAW' ? '平局' : '失败');
+    $('gmResult').innerText = '对局结束：' + txt;
+    $('gmResult').style.color = res === 'WIN' ? '#28a745' : (res === 'DRAW' ? '#fd7e14' : '#dc3545');
+    $('gmReadyRow').style.display = 'none';
+    const cells = document.querySelectorAll('#gmBoard .gm-cell'); cells.forEach(c => c.disabled = true);
+    setTimeout(() => { closeGomokuGame(); }, 3000);
+}
+async function gmToggleReady() {
+    const next = !myReady;
+    try {
+        const res = await fetchWithToken(`${API}/game/rooms/${state.activeGameRoomId}/ready`, { method:'POST', body: JSON.stringify({ ready: next }) });
+        const data = await res.json();
+        if (data.code === 200) { myReady = next; $('gmReadyBtn').innerText = myReady ? '取消准备' : '准备'; }
+        else alert(data.msg || '操作失败');
+    } catch(e) { alert('网络错误'); }
+}
+async function gmLeave() {
+    if (!confirm('确定离开/弃赛？')) return;
+    try { await fetchWithToken(`${API}/game/rooms/${state.activeGameRoomId}/leave`, { method:'POST' }); } catch(e) {}
+    closeGomokuGame();
+    refreshGameRooms();
+}
+
+/* ========== 档案/战绩/规则 ========== */
+async function showProfile() {
+    try { const res = await fetchWithToken(`${API}/game/profile`); const data = await res.json();
+        if (data.code !== 200) { alert(data.msg || '查询失败'); return; }
+        const p = data.data;
+        alert(`【${p.nickname}】\n积分: ${p.rankPoints}\n胜: ${p.wins}  负: ${p.losses}  平: ${p.draws}\n胜率: ${p.winRate}%\n连胜: ${p.currentStreak}\n状态: ${p.status}`);
+    } catch(e) { alert('网络错误'); }
+}
+async function showHistory() {
+    try { const res = await fetchWithToken(`${API}/game/history?limit=20`); const data = await res.json();
+        if (data.code !== 200) { alert(data.msg || '查询失败'); return; }
+        if (!data.data || !data.data.length) { alert('暂无战绩'); return; }
+        let txt = '';
+        data.data.forEach(m => {
+            txt += `${m.gameType} vs ${m.opponentName} ${m.result} ${m.rankDelta}\n`;
+        });
+        alert(txt);
+    } catch(e) { alert('网络错误'); }
+}
+async function showRulesPanel() {
+    try { const res = await fetchWithToken(`${API}/game/rules`); const data = await res.json();
+        if (data.code !== 200) { alert(data.msg); return; }
+        const r = data.data;
+        const modify = confirm(`积分规则：\n胜 +${r.winPoints}  负 ${r.lossPoints}  平 +${r.drawPoints}\n分差阈值 ${r.diffThreshold}  爆冷 ±${r.upsetBonus}\n保底 ${r.minPoints}  初始 ${r.initialPoints}\n\n确定修改？`);
+        if (!modify) return;
+        const adminKey = prompt('管理员密码：'); if (!adminKey) return;
+        const winPoints = prompt('胜场加分', r.winPoints);
+        const lossPoints = prompt('负场扣分', r.lossPoints);
+        const drawPoints = prompt('平局加分', r.drawPoints);
+        const diffThreshold = prompt('分差阈值', r.diffThreshold);
+        const upsetBonus = prompt('爆冷加成', r.upsetBonus);
+        const res2 = await fetchWithToken(`${API}/game/rules`, { method:'POST', body: JSON.stringify({ adminKey, winPoints:+winPoints, lossPoints:+lossPoints, drawPoints:+drawPoints, diffThreshold:+diffThreshold, upsetBonus:+upsetBonus }) });
+        alert((await res2.json()).msg || '已更新');
+    } catch(e) { alert('网络错误'); }
+}
+
+/* ========== 管理员重置密码 ========== */
+async function showAdminReset() {
+    const username = prompt('要重置的用户名：'); if (!username) return;
+    const newPassword = prompt('新密码：'); if (!newPassword) return;
+    const adminKey = prompt('管理员密码：');
+    try { const res = await fetch(`${API}/admin/reset-password`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, newPassword, adminKey }) });
+        alert((await res.json()).msg || '操作完成');
+    } catch(e) { alert('请求失败'); }
+}
+
+/* ========== 事件绑定 ========== */
+window.onload = function() {
+    if (!currentId) { $('loginTitle').innerText = '请先登录'; return; }
+    if (currentToken) {
+        const storedUser = localStorage.getItem(USER_KEY);
+        if (storedUser) {
+            try { const u = JSON.parse(storedUser);
+                if (String(u.id) !== String(currentId)) { logout(); return; }
+                state.currentUser = u;
+            } catch(e) { logout(); return; }
+        } else { logout(); return; }
+        Promise.all([fetchWithToken(`${API}/friends`).then(r=>r.json()), fetchWithToken(`${API}/my-groups`).then(r=>r.json())]).then(([fd, gd]) => {
+            if (fd.code === 200 && gd.code === 200) {
+                showApp(); state.friendsData = fd.data || []; state.groupsData = gd.data || [];
+                if (gd.data) state.currentUser.groups = gd.data;
+                renderFriendsList(); renderGroupsList();
+                connectWebSocket();
+                setTimeout(() => switchToLobby(), 400);
+            } else logout();
+        }).catch(() => logout());
+    }
+};
+window.onbeforeunload = () => {
+    if (state.stompClient && state.currentUser) { try { state.stompClient.send("/app/lobby.leave", {}, JSON.stringify({ username: state.currentUser.username })); } catch(e){} }
+    if (state.stompClient) state.stompClient.disconnect();
+};
+
+// 登录事件
+$('authBtn').onclick = handleAuth;
+$('toggleLink').onclick = toggleMode;
+$('adminLink').onclick = showAdminReset;
+$('username').onkeypress = e => { if (e.key === 'Enter') $('password').focus(); };
+$('password').onkeypress = e => { if (e.key === 'Enter') handleAuth(); };
+
+// 顶部退出
+$('topLogout').onclick = logout;
+$('meLogoutBtn').onclick = logout;
+
+// tab 切换
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+
+// 聊天
+$('sendBtn').onclick = sendMsg;
+$('msgInput').onkeypress = e => { if (e.key === 'Enter') sendMsg(); };
+
+// 好友
+$('addFriendBtn').onclick = addFriend;
+$('newFriendName').onkeypress = e => { if (e.key === 'Enter') addFriend(); };
+$('joinGroupBtn').onclick = joinGroup;
+$('newGroupName').onkeypress = e => { if (e.key === 'Enter') joinGroup(); };
+$('friendRequestList').onclick = e => { if (e.target.tagName === 'BUTTON') handleFriendRequest(e.target.dataset.id, e.target.dataset.act); };
+
+// 对战
+document.querySelectorAll('.gt-btn').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.gt-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); selectedGameType = b.dataset.gt;
+});
+$('createRoomBtn').onclick = createGameRoom;
+$('quickMatchBtn').onclick = quickMatch;
+$('gameRoomList').onclick = e => { if (e.target.tagName === 'BUTTON') joinGameRoom(e.target.dataset.rid, e.target.dataset.gt); };
+$('profileBtn').onclick = showProfile;
+$('historyBtn').onclick = showHistory;
+$('rulesBtn').onclick = showRulesPanel;
+$('meProfileBtn').onclick = showProfile;
+$('meHistoryBtn').onclick = showHistory;
+
+// 五子棋层
+$('gmReadyBtn').onclick = gmToggleReady;
+$('gmLeaveBtn').onclick = gmLeave;
+
+// 默认激活聊天 tab
+switchTab('panelChat');
+})();
+</script>
+</body>
+</html>

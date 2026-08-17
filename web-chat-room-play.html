@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web 聊天室 · 在线演示</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+    .wc-wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
+    .wc-app { background:var(--card); border:1px solid var(--border); border-radius:14px; height:600px; display:flex; overflow:hidden; }
+    .login-screen { width:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
+    .login-screen h2 { color:var(--accent); margin:0; }
+    .login-screen input {
+        width:280px; background:var(--bg-soft); border:1px solid var(--border); color:var(--text);
+        padding:10px 14px; border-radius:8px; font-size:.95rem; outline:none;
+    }
+    .login-screen input:focus { border-color:var(--accent); }
+    .login-screen .btns { display:flex; gap:10px; }
+    .btn { background:var(--accent); color:#0f1220; font-weight:700; border:none; padding:10px 24px; border-radius:8px; cursor:pointer; }
+    .btn.ghost { background:var(--bg-soft); color:var(--text); border:1px solid var(--border); }
+    .btn:hover { filter:brightness(1.1); }
+    .sidebar { width:260px; background:var(--bg-soft); border-right:1px solid var(--border); display:flex; flex-direction:column; }
+    .sidebar .me { padding:14px; border-bottom:1px solid var(--border); font-size:.9rem; }
+    .sidebar .me b { color:var(--accent); }
+    .sidebar .nav-item { padding:12px 16px; cursor:pointer; font-size:.9rem; color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,.03); }
+    .sidebar .nav-item:hover { background:rgba(255,255,255,.04); color:var(--text); }
+    .sidebar .nav-item.active { color:var(--accent); background:rgba(110,168,254,.08); }
+    .sidebar .section-title { padding:10px 16px 4px; font-size:.76rem; color:var(--text-dim); text-transform:uppercase; }
+    .sidebar .friend { padding:8px 16px; font-size:.85rem; cursor:pointer; color:var(--text); display:flex; align-items:center; gap:8px; }
+    .sidebar .friend:hover { background:rgba(255,255,255,.04); }
+    .sidebar .friend.active { background:rgba(110,168,254,.1); color:var(--accent); }
+    .dot { width:8px; height:8px; border-radius:50%; background:#2ecc71; }
+    .main { flex:1; display:flex; flex-direction:column; }
+    .chat-header { padding:14px 18px; border-bottom:1px solid var(--border); font-weight:700; color:var(--accent); }
+    .messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:8px; }
+    .msg { max-width:70%; padding:8px 14px; border-radius:12px; font-size:.88rem; line-height:1.4; word-break:break-word; }
+    .msg.self { align-self:flex-end; background:var(--accent); color:#0f1220; border-bottom-right-radius:2px; }
+    .msg.other { align-self:flex-start; background:var(--bg-soft); color:var(--text); border:1px solid var(--border); border-bottom-left-radius:2px; }
+    .msg .sender { font-size:.74rem; opacity:.7; margin-bottom:2px; }
+    .msg.sys { align-self:center; background:transparent; color:var(--text-dim); font-size:.78rem; }
+    .input-row { padding:12px; border-top:1px solid var(--border); display:flex; gap:10px; }
+    .input-row input { flex:1; background:var(--bg-soft); border:1px solid var(--border); color:var(--text); padding:10px 14px; border-radius:20px; outline:none; }
+    .input-row input:focus { border-color:var(--accent); }
+    .lobby-tip { color:var(--text-dim); font-size:.82rem; padding:0 18px 8px; }
+    .actions-row { display:flex; gap:8px; padding:8px 12px; }
+    .actions-row .mini { background:var(--bg-soft); border:1px solid var(--border); color:var(--text-dim); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:.8rem; text-decoration:none; }
+    .actions-row .mini:hover { color:var(--accent); border-color:var(--accent); }
+    .demo-note { background:rgba(241,196,15,.1); color:#f1c40f; padding:8px 14px; border-radius:6px; font-size:.82rem; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<div class="page wc-wrap">
+<a class="back" href="index.html" style="display:inline-block;margin-bottom:12px">← 返回作品集首页</a>
+<h1 style="text-align:center">Web 聊天室（Token 版）· 在线演示</h1>
+<div class="demo-note">演示说明：原作需 Spring Boot 后端 + WebSocket + 数据库。本页用本地数据模拟登录/Token/好友/大厅/私聊/群聊完整流程。</div>
+
+<div class="wc-app" id="app">
+    <!-- 登录 -->
+    <div class="login-screen" id="login">
+        <h2>登录 Web 聊天室</h2>
+        <input id="login-user" placeholder="用户名" value="昊昊">
+        <input id="login-pwd" type="password" placeholder="密码" value="123456">
+        <div class="btns">
+            <button class="btn" onclick="doLogin()">登录</button>
+            <button class="btn ghost" onclick="doRegister()">注册</button>
+        </div>
+        <p style="color:var(--text-dim);font-size:.8rem">演示账号：昊昊/123456 或 小明/123456，也可注册新号</p>
+    </div>
+
+    <!-- 主界面 -->
+    <div class="sidebar" id="sidebar" style="display:none">
+        <div class="me">👤 <b id="me-name"></b> <span style="float:right;cursor:pointer;color:var(--text-dim)" onclick="logout()">退出</span></div>
+        <div class="nav-item active" onclick="openLobby()">💬 公共大厅 <span id="lobby-count" style="background:var(--accent);color:#0f1220;border-radius:10px;padding:1px 7px;font-size:.72rem;margin-left:4px">3</span></div>
+        <div class="section-title">好友</div>
+        <div id="friend-list"></div>
+        <div class="section-title">群组</div>
+        <div id="group-list"></div>
+        <div class="actions-row">
+            <a class="mini" href="gomoku-play.html">🎮 五子棋</a>
+            <span class="mini" onclick="alert('对战大厅演示：点击五子棋可进入对战')">⚔ 对战</span>
+        </div>
+    </div>
+    <div class="main" id="main" style="display:none">
+        <div class="chat-header" id="chat-title">公共大厅</div>
+        <div class="lobby-tip" id="lobby-tip"></div>
+        <div class="messages" id="messages"></div>
+        <div class="input-row">
+            <input id="msg-input" placeholder="输入消息，回车发送…" onkeydown="if(event.key==='Enter')sendMsg()">
+            <button class="btn" onclick="sendMsg()">发送</button>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+(function(){
+// 模拟服务器数据
+const SERVER = {
+    users: {}, // username -> {password, nickname, friends:[], groups:[]}
+    lobbyMsgs: [], // {sender, content, time}
+    privateMsgs: {}, // "user1|user2" -> [{sender, content, time}]
+    groupMsgs: {}, // groupId -> [{sender, content, time}]
+    online: new Set(),
+};
+// 预置用户
+function initUser(u,n,p){ SERVER.users[u]={password:p, nickname:n, friends:[], groups:[]}; }
+initUser("昊昊","昊昊","123456"); initUser("小明","小明","123456"); initUser("小红","小红","123456");
+SERVER.users["昊昊"].friends=["小明","小红"];
+SERVER.users["小明"].friends=["昊昊"];
+SERVER.users["昊昊"].groups=[{id:"g1",name:"技术交流"}];
+SERVER.groupMsgs["g1"]=[];
+SERVER.lobbyMsgs.push({sender:"小明",content:"大家好！",time:"09:30:01"});
+SERVER.lobbyMsgs.push({sender:"小红",content:"今天天气不错",time:"09:31:15"});
+
+let me = null; // 当前用户名
+let curChat = {type:"lobby", id:null}; // lobby / private:name / group:id
+
+function $(id){ return document.getElementById(id); }
+function now(){ return new Date().toLocaleTimeString("zh-CN",{hour12:false}); }
+
+window.doLogin = function(){
+    const u = $("login-user").value.trim();
+    const p = $("login-pwd").value.trim();
+    if (!u||!p){ alert("请输入用户名和密码"); return; }
+    const user = SERVER.users[u];
+    if (!user || user.password !== p){ alert("用户名或密码错误"); return; }
+    me = u; SERVER.online.add(u);
+    enterApp();
+};
+window.doRegister = function(){
+    const u = $("login-user").value.trim();
+    const p = $("login-pwd").value.trim();
+    if (!u||!p){ alert("请输入用户名和密码"); return; }
+    if (SERVER.users[u]){ alert("用户名已存在"); return; }
+    initUser(u,u,p); me=u; SERVER.online.add(u);
+    enterApp();
+};
+window.logout = function(){
+    SERVER.online.delete(me); me=null;
+    $("login").style.display="flex"; $("sidebar").style.display="none"; $("main").style.display="none";
+};
+
+function enterApp(){
+    $("login").style.display="none";
+    $("sidebar").style.display="flex";
+    $("main").style.display="flex";
+    $("me-name").textContent = SERVER.users[me].nickname;
+    renderFriends(); renderGroups();
+    openLobby();
+}
+function renderFriends(){
+    const fl = $("friend-list"); fl.innerHTML="";
+    const friends = SERVER.users[me].friends;
+    if (friends.length===0){ fl.innerHTML='<div style="padding:8px 16px;color:var(--text-dim);font-size:.82rem">暂无好友</div>'; return; }
+    friends.forEach(f=>{
+        const d = document.createElement("div");
+        d.className="friend";
+        d.innerHTML = `<span class="dot"></span>${SERVER.users[f].nickname}`;
+        d.onclick = ()=>openPrivate(f);
+        fl.appendChild(d);
+    });
+}
+function renderGroups(){
+    const gl = $("group-list"); gl.innerHTML="";
+    const groups = SERVER.users[me].groups;
+    if (groups.length===0){ gl.innerHTML='<div style="padding:8px 16px;color:var(--text-dim);font-size:.82rem">暂无群组</div>'; return; }
+    groups.forEach(g=>{
+        const d = document.createElement("div");
+        d.className="friend";
+        d.innerHTML = `👥 ${g.name}`;
+        d.onclick = ()=>openGroup(g.id, g.name);
+        gl.appendChild(d);
+    });
+}
+
+window.openLobby = function(){
+    curChat = {type:"lobby"};
+    $("chat-title").textContent = "💬 公共大厅";
+    $("lobby-tip").textContent = `在线 ${SERVER.online.size} 人 · 全体公开聊天`;
+    renderMsgs();
+};
+function openPrivate(name){
+    curChat = {type:"private", id:name};
+    $("chat-title").textContent = `💬 ${SERVER.users[name].nickname}（私聊）`;
+    $("lobby-tip").textContent = "";
+    renderMsgs();
+}
+function openGroup(id, name){
+    curChat = {type:"group", id};
+    $("chat-title").textContent = `👥 ${name}（群聊）`;
+    $("lobby-tip").textContent = "";
+    renderMsgs();
+}
+function msgKey(a,b){ return [a,b].sort().join("|"); }
+
+function renderMsgs(){
+    const m = $("messages"); m.innerHTML="";
+    let list = [];
+    if (curChat.type==="lobby") list = SERVER.lobbyMsgs;
+    else if (curChat.type==="private") list = SERVER.privateMsgs[msgKey(me,curChat.id)]||[];
+    else if (curChat.type==="group") list = SERVER.groupMsgs[curChat.id]||[];
+    list.forEach(msg=>{
+        const div = document.createElement("div");
+        if (msg.sys){ div.className="msg sys"; div.textContent=msg.content; }
+        else {
+            const self = msg.sender===me;
+            div.className = "msg " + (self?"self":"other");
+            div.innerHTML = `${self?"":`<div class="sender">${SERVER.users[msg.sender]?SERVER.users[msg.sender].nickname:msg.sender}</div>`}${escapeHtml(msg.content)}`;
+        }
+        m.appendChild(div);
+    });
+    m.scrollTop = m.scrollHeight;
+}
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+window.sendMsg = function(){
+    const inp = $("msg-input");
+    const content = inp.value.trim();
+    if (!content||!me) return;
+    const t = now();
+    if (curChat.type==="lobby"){
+        SERVER.lobbyMsgs.push({sender:me, content, time:t});
+        // 模拟其他用户回复
+        setTimeout(()=>{ simulateReply("lobby"); }, 1200);
+    } else if (curChat.type==="private"){
+        const k = msgKey(me, curChat.id);
+        if (!SERVER.privateMsgs[k]) SERVER.privateMsgs[k]=[];
+        SERVER.privateMsgs[k].push({sender:me, content, time:t});
+        setTimeout(()=>{ simulateReply("private", curChat.id); }, 1500);
+    } else if (curChat.type==="group"){
+        if (!SERVER.groupMsgs[curChat.id]) SERVER.groupMsgs[curChat.id]=[];
+        SERVER.groupMsgs[curChat.id].push({sender:me, content, time:t});
+        setTimeout(()=>{ simulateReply("group"); }, 1500);
+    }
+    inp.value="";
+    renderMsgs();
+};
+
+function simulateReply(scope, target){
+    const replies = ["好的","哈哈","收到","有意思","嗯嗯","继续说","👍","明白了"];
+    const r = replies[Math.floor(Math.random()*replies.length)];
+    const t = now();
+    let sender;
+    if (scope==="lobby"){
+        const others = Array.from(SERVER.online).filter(u=>u!==me);
+        if (others.length===0) return;
+        sender = others[Math.floor(Math.random()*others.length)];
+        SERVER.lobbyMsgs.push({sender, content:r, time:t});
+    } else if (scope==="private"){
+        sender = target;
+        const k = msgKey(me, target);
+        SERVER.privateMsgs[k].push({sender, content:r, time:t});
+    } else if (scope==="group"){
+        const members = Object.keys(SERVER.users).filter(u=>SERVER.users[u].groups.some(g=>g.id===curChat.id)&&u!==me);
+        if (members.length===0) return;
+        sender = members[Math.floor(Math.random()*members.length)];
+        SERVER.groupMsgs[curChat.id].push({sender, content:r, time:t});
+    }
+    renderMsgs();
+}
+
+// 默认在线
+SERVER.online.add("昊昊"); SERVER.online.add("小明"); SERVER.online.add("小红");
+})();
+</script>
+</body>
+</html>

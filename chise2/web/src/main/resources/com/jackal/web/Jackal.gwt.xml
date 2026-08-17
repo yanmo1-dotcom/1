@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Jackal.gwt.xml —— GWT 模块描述文件。
+  声明网页模块继承 LibGDX 的 GWT 后端，入口类为 HtmlLauncher。
+  GWT 编译器读此文件确定要编译哪些 Java 源码为 JavaScript。
+-->
+<module rename-to="jackal">
+    <!-- 继承 LibGDX 的 GWT 后端模块（含 WebGL 渲染、输入、音频仿真） -->
+    <inherits name="com.badlogic.gdx.backends.gdx_backends_gwt"/>
+    <!-- 继承 LibGDX 核心的 GWT 兼容部分（emu 仿真 Java 标准库子集） -->
+    <inherits name="com.badlogic.gdx"/>
+
+    <!-- 指定 GWT 入口类：HtmlLauncher 的 onModuleLoad 由父类实现 -->
+    <entry-point class="com.jackal.web.HtmlLauncher"/>
+
+    <!-- 资源路径：preloader 读取的 assets 目录（由 build 配置生成） -->
+    <public path="war"/>
+
+    <!-- 启用超级 dev mode 可选；正式编译用 prod -->
+    <set-configuration-property name="gwt.suppressNonPublicEntries" value="false"/>
+    <!-- 资源加载路径前缀，与 war 目录结构一致 -->
+    <set-configuration-property name="gdx.assetpath" value="assets"/>
+</module>

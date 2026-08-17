@@ -1,0 +1,28 @@
+// ============================================================
+// settings.gradle —— 多模块项目结构与插件管理
+// ============================================================
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        // 国内加速镜像，避免下载插件超时
+        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
+    }
+}
+
+// foojay-resolver-convention 用于自动下载 JDK 工具链。
+// 当前离线环境仅装 JDK 26 且无法访问 GitHub 下载 toolchain，故暂时不启用。
+// 后续若机器装了 JDK 17 或网络可达，取消下方注释即可恢复 toolchain 自动下载：
+//   plugins { id "org.gradle.toolchains.foojay-resolver-convention" version "0.8.0" }
+
+// 项目名称（与根目录文件夹名一致即可）
+rootProject.name = "chise2"
+
+// 包含核心逻辑模块、桌面启动模块与网页模块
+include ":core"
+include ":desktop"
+include ":web"
+
+project(":core").name = "core"
+project(":desktop").name = "desktop"
+project(":web").name = "web"
