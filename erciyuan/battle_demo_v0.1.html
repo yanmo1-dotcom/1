@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星轨协奏 - 战斗原型 Demo v0.1</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #e0e0e0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .game-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  /* 顶部敌人区 */
+  .enemy-area {
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255,100,100,0.3);
+  }
+  .enemy-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  .enemy-avatar {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6a0572, #ab83a1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    border: 3px solid #c44dff;
+    flex-shrink: 0;
+  }
+  .enemy-info { flex: 1; }
+  .enemy-name { font-size: 18px; font-weight: bold; color: #ff8888; margin-bottom: 5px; }
+  .hp-bar {
+    height: 20px;
+    background: #333;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4444, #ff6666);
+    transition: width 0.5s ease;
+  }
+  .hp-text {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #000;
+  }
+  .enemy-status { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+  .status-icon {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  .status-buff { background: rgba(100,255,100,0.2); color: #88ff88; border: 1px solid #44ff44; }
+  .status-debuff { background: rgba(255,100,100,0.2); color: #ff8888; border: 1px solid #ff4444; }
+  .status-dot { background: rgba(255,150,50,0.2); color: #ffaa55; border: 1px solid #ff8800; }
+  .status-cc { background: rgba(150,150,255,0.2); color: #aaaaff; border: 1px solid #8888ff; }
+  .status-shield { background: rgba(100,200,255,0.2); color: #88ccff; border: 1px solid #44aaff; }
+  .enemy-intent {
+    margin-top: 8px;
+    padding: 6px 12px;
+    background: rgba(255,200,50,0.15);
+    border: 1px solid rgba(255,200,50,0.4);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #ffcc44;
+  }
+  /* 战斗日志 */
+  .battle-log {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100px;
+    max-height: 180px;
+  }
+  .log-entry { margin-bottom: 3px; }
+  .log-damage { color: #ff8888; }
+  .log-heal { color: #88ff88; }
+  .log-shield { color: #88ccff; }
+  .log-system { color: #ffcc44; }
+  .log-ult { color: #ff88ff; font-weight: bold; }
+  /* 玩家区 */
+  .player-area {
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(100,200,255,0.3);
+  }
+  .player-team {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 10px;
+  }
+  .player-card {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 10px;
+    border: 2px solid transparent;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+  .player-card.active { border-color: #44aaff; background: rgba(68,170,255,0.1); }
+  .player-card.dead { opacity: 0.4; pointer-events: none; }
+  .player-card.targetable { border-color: #44ff44; animation: pulse 1s infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 5px #44ff44; }
+    50% { box-shadow: 0 0 15px #44ff44; }
+  }
+  .player-header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .player-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .avatar-light { background: linear-gradient(135deg, #ffd700, #fff8dc); border: 2px solid #ffd700; }
+  .avatar-water { background: linear-gradient(135deg, #00bfff, #87ceeb); border: 2px solid #00bfff; }
+  .avatar-earth { background: linear-gradient(135deg, #8b4513, #deb887); border: 2px solid #8b4513; }
+  .player-name { font-size: 14px; font-weight: bold; }
+  .player-element { font-size: 11px; padding: 1px 6px; border-radius: 3px; }
+  .elem-light { background: #ffd700; color: #333; }
+  .elem-water { background: #00bfff; color: #fff; }
+  .elem-earth { background: #8b4513; color: #fff; }
+  .elem-dark { background: #6a0572; color: #fff; }
+  .player-hp-bar { height: 12px; background: #333; border-radius: 6px; overflow: hidden; margin-bottom: 3px; position: relative; }
+  .player-hp-fill { height: 100%; background: linear-gradient(90deg, #44ff44, #66ff66); transition: width 0.5s; }
+  .player-hp-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 10px; text-shadow: 1px 1px 1px #000; }
+  .passion-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 3px; }
+  .passion-fill { height: 100%; background: linear-gradient(90deg, #ff44ff, #ff88ff); transition: width 0.3s; }
+  .passion-fill.full { animation: glow 1s infinite; }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 3px #ff44ff; }
+    50% { box-shadow: 0 0 10px #ff44ff; }
+  }
+  .player-status { display: flex; gap: 3px; flex-wrap: wrap; min-height: 18px; }
+  /* 手牌区 */
+  .hand-area {
+    background: rgba(0,0,0,0.4);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    min-height: 160px;
+  }
+  .hand-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .ap-display { display: flex; gap: 5px; align-items: center; }
+  .ap-orb {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #333;
+    border: 2px solid #666;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: bold;
+  }
+  .ap-orb.available { background: linear-gradient(135deg, #44aaff, #88ccff); border-color: #44aaff; color: #fff; }
+  .hand-cards {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .card {
+    width: 110px;
+    min-height: 140px;
+    background: linear-gradient(135deg, #2a2a4a, #1a1a3a);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid #444;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover { transform: translateY(-8px); box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+  .card.selected { border-color: #ffcc00; box-shadow: 0 0 15px #ffcc00; transform: translateY(-8px); }
+  .card.mergeable { border-color: #44ff44; }
+  .card.disabled { opacity: 0.5; pointer-events: none; }
+  .card-tier {
+    position: absolute;
+    top: 4px; right: 4px;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: bold;
+  }
+  .tier-1 { background: #666; color: #fff; }
+  .tier-2 { background: #44aaff; color: #fff; }
+  .tier-3 { background: #ff8800; color: #fff; }
+  .card-name { font-size: 12px; font-weight: bold; margin-bottom: 4px; padding-right: 25px; }
+  .card-type { font-size: 10px; color: #aaa; margin-bottom: 4px; }
+  .card-power { font-size: 14px; font-weight: bold; color: #ffcc00; margin-bottom: 4px; }
+  .card-desc { font-size: 10px; color: #bbb; line-height: 1.3; flex: 1; }
+  .card-element-icon { font-size: 16px; margin-bottom: 2px; }
+  /* 操作按钮 */
+  .action-bar {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-primary { background: linear-gradient(135deg, #44aaff, #2288dd); color: #fff; }
+  .btn-primary:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(68,170,255,0.4); }
+  .btn-primary:disabled { background: #555; cursor: not-allowed; transform: none; }
+  .btn-ult { background: linear-gradient(135deg, #ff44ff, #cc22cc); color: #fff; }
+  .btn-ult:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(255,68,255,0.4); }
+  .btn-ult:disabled { background: #555; cursor: not-allowed; transform: none; }
+  .btn-merge { background: linear-gradient(135deg, #44ff44, #22cc22); color: #fff; }
+  .btn-danger { background: linear-gradient(135deg, #ff4444, #cc2222); color: #fff; }
+  /* 目标选择提示 */
+  .target-prompt {
+    text-align: center;
+    padding: 8px;
+    background: rgba(255,204,0,0.15);
+    border: 1px solid #ffcc00;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #ffcc00;
+    display: none;
+  }
+  .target-prompt.show { display: block; }
+  /* 结算画面 */
+  .overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .overlay.show { display: flex; }
+  .result-box {
+    background: linear-gradient(135deg, #2a2a4a, #1a1a3a);
+    border-radius: 16px;
+    padding: 40px;
+    text-align: center;
+    border: 2px solid #44aaff;
+  }
+  .result-title { font-size: 36px; font-weight: bold; margin-bottom: 20px; }
+  .result-win { color: #44ff44; }
+  .result-lose { color: #ff4444; }
+  /* 伤害数字动画 */
+  .damage-popup {
+    position: absolute;
+    font-size: 24px;
+    font-weight: bold;
+    pointer-events: none;
+    animation: floatUp 1s ease-out forwards;
+    z-index: 50;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-50px); }
+  }
+  .dmg-normal { color: #ff8888; }
+  .dmg-crit { color: #ffcc00; font-size: 32px; }
+  .dmg-heal { color: #88ff88; }
+  .dmg-shield { color: #88ccff; }
+  /* 规则说明 */
+  .rules-panel {
+    background: rgba(0,0,0,0.5);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.5;
+  }
+  .rules-panel summary { cursor: pointer; color: #88ccff; font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <!-- 敌人区 -->
+  <div class="enemy-area">
+    <div class="enemy-card" id="enemyCard">
+      <div class="enemy-avatar" id="enemyAvatar">👹</div>
+      <div class="enemy-info">
+        <div class="enemy-name" id="enemyName">虚蚀之影</div>
+        <div class="hp-bar">
+          <div class="hp-fill" id="enemyHpFill" style="width:100%"></div>
+          <div class="hp-text" id="enemyHpText">2000/2000</div>
+        </div>
+        <div class="enemy-status" id="enemyStatus"></div>
+        <div class="enemy-intent" id="enemyIntent">⚠ 下回合：暗影弹幕（群体暗属性伤害）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 战斗日志 -->
+  <div class="battle-log" id="battleLog"></div>
+
+  <!-- 目标选择提示 -->
+  <div class="target-prompt" id="targetPrompt">请选择目标</div>
+
+  <!-- 玩家区 -->
+  <div class="player-area">
+    <div class="player-team" id="playerTeam"></div>
+  </div>
+
+  <!-- 手牌区 -->
+  <div class="hand-area">
+    <div class="hand-info">
+      <div class="ap-display">
+        <span>行动点：</span>
+        <div id="apOrbs"></div>
+      </div>
+      <div>手牌：<span id="handCount">0</span>/7 | 牌库：<span id="deckCount">0</span> | 弃牌：<span id="discardCount">0</span></div>
+      <div>回合：<span id="turnCount">1</span></div>
+    </div>
+    <div class="hand-cards" id="handCards"></div>
+  </div>
+
+  <!-- 操作按钮 -->
+  <div class="action-bar">
+    <button class="btn btn-merge" id="mergeBtn" style="display:none" onclick="mergeCards()">🔮 合成卡牌</button>
+    <button class="btn btn-ult" id="ultBtn" style="display:none" onclick="releaseUlt()">✨ 释放协奏技</button>
+    <button class="btn btn-primary" id="endTurnBtn" onclick="endPlayerTurn()">结束回合</button>
+    <button class="btn btn-danger" onclick="restartGame()">重新开始</button>
+  </div>
+
+  <!-- 规则说明 -->
+  <div class="rules-panel">
+    <summary>📖 操作说明（点击展开）</summary>
+    <p>• 点击手牌选中，再点击目标（敌人/队友）出牌。攻击卡打敌人，治疗/护盾卡选队友。</p>
+    <p>• 选中一张卡后，若手牌中有同名同阶卡，会出现"合成卡牌"按钮，合成后升级为高阶卡（不消耗行动点，但减少手牌数）。</p>
+    <p>• 激情满 100 时，点击角色选中后出现"释放协奏技"按钮。</p>
+    <p>• 每回合 3 行动点，出牌消耗 1 点。属性克制：辉↔暗（×1.5），火→风→土→水→火。</p>
+    <p>• 敌人下回合行动会提前预告，请合理规划出牌和护盾。</p>
+  </div>
+</div>
+
+<!-- 结算画面 -->
+<div class="overlay" id="resultOverlay">
+  <div class="result-box">
+    <div class="result-title" id="resultTitle"></div>
+    <p id="resultDesc" style="margin-bottom:20px;color:#aaa;"></p>
+    <button class="btn btn-primary" onclick="restartGame()">再来一局</button>
+  </div>
+</div>
+
+<script>
+// ========== 游戏配置 ==========
+const RULESET_ID = "stellar_concerto_v0.1";
+const ELEMENT_MULTIPLIER = {
+  light: { dark: 1.5 },
+  dark: { light: 1.5 },
+  fire: { wind: 1.5, water: 0.75 },
+  water: { fire: 1.5, earth: 0.75 },
+  wind: { earth: 1.5, fire: 0.75 },
+  earth: { water: 1.5, wind: 0.75 }
+};
+const ELEMENT_NAMES = { light:"辉", dark:"暗", fire:"火", water:"水", wind:"风", earth:"土" };
+const ELEMENT_ICONS = { light:"☀️", dark:"🌙", fire:"🔥", water:"💧", wind:"🌪️", earth:"🪨" };
+
+// ========== 角色定义 ==========
+const CHARACTERS = {
+  aria: {
+    id: "aria", name: "艾莉亚", element: "light", avatarClass: "avatar-light",
+    maxHp: 320, atk: 60, def: 25, spd: 100,
+    passive: "辉之眷属：对暗属性敌人伤害+20%",
+    cards: [
+      { id: "bright_slash", name: "辉刃斩", type: "attack", element: "light", target: "enemy", power: 60, desc: "辉属性单体伤害", count: 4 },
+      { id: "star_thrust", name: "星芒突刺", type: "attack", element: "light", target: "enemy", power: 80, desc: "无视30%防御", armorPen: 0.3, count: 3 },
+      { id: "light_barrier", name: "辉光屏障", type: "shield", element: "light", target: "self", power: 80, desc: "获得护盾", count: 3 }
+    ],
+    ult: { id: "stellar_judgment", name: "星穹裁决", element: "light", target: "enemy", power: 120, hits: 3, desc: "3段辉属性伤害，附带辉光禁锢", effect: { type: "stun", duration: 1 } }
+  },
+  lina: {
+    id: "lina", name: "莉娜", element: "water", avatarClass: "avatar-water",
+    maxHp: 280, atk: 42, def: 30, spd: 95,
+    passive: "治愈之水：治疗效果+25%",
+    cards: [
+      { id: "water_bullet", name: "水弹", type: "attack", element: "water", target: "enemy", power: 45, desc: "30%概率中毒", dotChance: 0.3, count: 4 },
+      { id: "clear_shield", name: "清泉护盾", type: "shield", element: "water", target: "ally", power: 100, desc: "目标获得护盾", count: 3 },
+      { id: "healing_spring", name: "治愈之泉", type: "heal", element: "water", target: "all_allies", power: 60, desc: "全队回复生命", count: 3 }
+    ],
+    ult: { id: "tide_of_life", name: "生命之潮", element: "water", target: "all_allies", power: 150, hits: 1, desc: "全队治疗，清除减益，激情涌动", effect: { type: "cleanse_debuff", passionBuff: 0.5 } }
+  },
+  greg: {
+    id: "greg", name: "格雷", element: "earth", avatarClass: "avatar-earth",
+    maxHp: 380, atk: 40, def: 45, spd: 85,
+    passive: "岩石之躯：HP低于50%时防御+50%",
+    cards: [
+      { id: "rock_strike", name: "岩击", type: "attack", element: "earth", target: "enemy", power: 50, desc: "30%概率防御降低", debuffChance: 0.3, count: 4 },
+      { id: "rock_wall", name: "岩壁", type: "buff", element: "earth", target: "all_allies", power: 20, desc: "全队减伤20%", count: 3 },
+      { id: "taunt_roar", name: "嘲讽怒吼", type: "special", element: "earth", target: "self", power: 120, desc: "嘲讽+护盾", count: 3 }
+    ],
+    ult: { id: "earth_quake", name: "大地崩裂", element: "earth", target: "all_enemies", power: 140, hits: 1, desc: "群体土属性伤害，50%眩晕", effect: { type: "stun_chance", chance: 0.5 } }
+  }
+};
+
+// ========== 敌人定义 ==========
+const ENEMY_TEMPLATES = {
+  void_shadow: {
+    id: "void_shadow", name: "虚蚀之影", element: "dark",
+    maxHp: 2000, atk: 55, def: 35, spd: 100,
+    skills: [
+      { id: "shadow_barrage", name: "暗影弹幕", type: "attack", element: "dark", target: "all_allies", power: 40, desc: "群体暗属性伤害" },
+      { id: "void_touch", name: "暗蚀之触", type: "attack", element: "dark", target: "enemy", power: 70, desc: "单体暗属性伤害，施加暗蚀", effect: { type: "dark_corrosion", stacks: 2 } },
+      { id: "void_wave", name: "虚蚀冲击波", type: "attack", element: "dark", target: "all_allies", power: 120, desc: "强力群体暗属性伤害" }
+    ],
+    skillPattern: ["shadow_barrage", "void_touch", "void_wave"]
+  }
+};
+
+// ========== 游戏状态 ==========
+let gameState = {
+  turn: 1,
+  phase: "player", // player, enemy, ended
+  ap: 3,
+  maxAp: 3,
+  players: [],
+  enemy: null,
+  deck: [],
+  hand: [],
+  discard: [],
+  selectedCard: null,
+  selectedPlayer: null,
+  mergeCandidate: null,
+  enemySkillIndex: 0,
+  nextEnemySkill: null,
+  battleOver: false
+};
+
+// ========== 初始化 ==========
+function initGame() {
+  gameState = {
+    turn: 1, phase: "player", ap: 3, maxAp: 3,
+    players: [], enemy: null, deck: [], hand: [], discard: [],
+    selectedCard: null, selectedPlayer: null, mergeCandidate: null,
+    enemySkillIndex: 0, nextEnemySkill: null, battleOver: false
+  };
+
+  // 初始化玩家
+  ["aria", "lina", "greg"].forEach(id => {
+    const c = CHARACTERS[id];
+    gameState.players.push({
+      ...c,
+      hp: c.maxHp,
+      passion: 0,
+      maxPassion: 100,
+      statuses: [],
+      alive: true
+    });
+  });
+
+  // 初始化敌人
+  const e = ENEMY_TEMPLATES.void_shadow;
+  gameState.enemy = {
+    ...e,
+    hp: e.maxHp,
+    statuses: [],
+    alive: true
+  };
+
+  // 构建牌库
+  buildDeck();
+
+  // 设置敌人预告
+  gameState.nextEnemySkill = gameState.enemy.skills[0];
+
+  // 初始抽牌
+  drawCards(5);
+
+  log("⚔ 战斗开始！虚蚀之影出现了！", "system");
+  log("💡 提示：点击手牌选中，再点击目标出牌。", "system");
+
+  render();
+}
+
+function buildDeck() {
+  gameState.deck = [];
+  gameState.players.forEach(p => {
+    p.cards.forEach(cardDef => {
+      for (let i = 0; i < cardDef.count; i++) {
+        gameState.deck.push({
+          ...cardDef,
+          uid: `${p.id}_${cardDef.id}_${i}_${Math.random()}`,
+          owner: p.id,
+          tier: 1,
+          basePower: cardDef.power
+        });
+      }
+    });
+  });
+  shuffleArray(gameState.deck);
+}
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// ========== 抽牌 ==========
+function drawCards(count) {
+  for (let i = 0; i < count; i++) {
+    if (gameState.hand.length >= 7) {
+      log("⚠ 手牌已满，超出的牌被弃置！", "system");
+      break;
+    }
+    if (gameState.deck.length === 0) {
+      if (gameState.discard.length === 0) break;
+      gameState.deck = [...gameState.discard];
+      gameState.discard = [];
+      shuffleArray(gameState.deck);
+      log("🔄 弃牌堆洗入牌库", "system");
+    }
+    const card = gameState.deck.pop();
+    gameState.hand.push(card);
+  }
+}
+
+// ========== 伤害计算 ==========
+function calcDamage(attacker, defender, basePower, element, armorPen = 0) {
+  let atk = attacker.atk;
+  // 格雷被动
+  if (attacker.id === "greg" && attacker.hp < attacker.maxHp * 0.5) {
+    // 格雷被动是防御提升，不影响攻击
+  }
+  let def = defender.def;
+  // 防御降低debuff
+  const defDown = defender.statuses?.find(s => s.type === "def_down");
+  if (defDown) def *= (1 - 0.15 * defDown.stacks);
+
+  let damage = basePower * (atk / 50);
+
+  // 属性克制
+  const elemMult = ELEMENT_MULTIPLIER[element]?.[defender.element] || 1.0;
+  damage *= elemMult;
+
+  // 艾莉亚被动
+  if (attacker.id === "aria" && defender.element === "dark") damage *= 1.2;
+
+  // 卡莲被动（对灼烧目标）
+  if (attacker.id === "karen" && defender.statuses?.find(s => s.type === "burn")) damage *= 1.3;
+
+  // 辉光烙印
+  const brand = defender.statuses?.find(s => s.type === "light_brand");
+  if (brand && element === "light") damage *= 1.2;
+
+  // 暗蚀
+  const corrosion = defender.statuses?.find(s => s.type === "dark_corrosion");
+  if (corrosion && element === "dark") damage *= (1 + 0.15 * corrosion.stacks);
+
+  // 减伤
+  const damageReduction = def / (def + 100);
+  const effectiveReduction = damageReduction * (1 - armorPen);
+  damage *= (1 - effectiveReduction);
+
+  // 岩壁减伤
+  const rockWall = defender.statuses?.find(s => s.type === "rock_wall");
+  if (rockWall) damage *= 0.8;
+
+  // 随机浮动
+  damage *= (0.95 + Math.random() * 0.1);
+
+  return Math.max(1, Math.round(damage));
+}
+
+// ========== 出牌 ==========
+function selectCard(cardUid) {
+  if (gameState.phase !== "player" || gameState.battleOver) return;
+  if (gameState.ap <= 0) { log("⚠ 行动点不足！", "system"); return; }
+
+  const card = gameState.hand.find(c => c.uid === cardUid);
+  if (!card) return;
+
+  if (gameState.selectedCard?.uid === cardUid) {
+    gameState.selectedCard = null;
+    gameState.mergeCandidate = null;
+  } else {
+    gameState.selectedCard = card;
+    // 检查可合成
+    gameState.mergeCandidate = gameState.hand.find(c =>
+      c.uid !== card.uid && c.id === card.id && c.tier === card.tier && card.tier < 3
+    );
+  }
+  gameState.selectedPlayer = null;
+  render();
+}
+
+function playCard(targetType, targetId) {
+  if (!gameState.selectedCard || gameState.phase !== "player") return;
+  const card = gameState.selectedCard;
+
+  // 验证目标
+  if (card.target === "enemy" && targetType !== "enemy") return;
+  if (card.target === "ally" && targetType !== "player") return;
+  if (card.target === "self" && targetType !== "player") return;
+
+  const owner = gameState.players.find(p => p.id === card.owner);
+  if (!owner || !owner.alive) return;
+
+  // 消耗
+  gameState.ap--;
+  gameState.hand = gameState.hand.filter(c => c.uid !== card.uid);
+  gameState.discard.push(card);
+
+  // 计算等阶威力
+  const tierMult = card.tier === 1 ? 1.0 : card.tier === 2 ? 1.8 : 2.8;
+  const power = Math.round(card.basePower * tierMult);
+
+  log(`🎴 ${owner.name} 使用 ${card.name}（${card.tier}阶）`, "system");
+
+  // 执行效果
+  if (card.type === "attack") {
+    const target = gameState.enemy;
+    const dmg = calcDamage(owner, target, power, card.element, card.armorPen || 0);
+    dealDamage(target, dmg, card.element);
+    // 附加效果
+    if (card.dotChance && Math.random() < card.dotChance) {
+      addStatus(target, { type: "poison", stacks: 1, duration: 3, power: 25 });
+      log(`☠ ${target.name} 中毒了！`, "dot");
+    }
+    if (card.debuffChance && Math.random() < card.debuffChance) {
+      addStatus(target, { type: "def_down", stacks: 1, duration: 2 });
+      log(`🔽 ${target.name} 防御降低！`, "debuff");
+    }
+    // 3阶辉刃斩附加辉光烙印
+    if (card.id === "bright_slash" && card.tier >= 3) {
+      addStatus(target, { type: "light_brand", duration: 2 });
+      log(`✨ ${target.name} 被辉光烙印！`, "buff");
+    }
+  } else if (card.type === "shield") {
+    const target = card.target === "self" ? owner : gameState.players.find(p => p.id === targetId);
+    if (target) {
+      addStatus(target, { type: "shield", duration: 2, power: power });
+      log(`🛡 ${target.name} 获得 ${power} 点护盾！`, "shield");
+    }
+  } else if (card.type === "heal") {
+    const targets = card.target === "all_allies" ? gameState.players.filter(p => p.alive) : [gameState.players.find(p => p.id === targetId)];
+    let healPower = power;
+    if (owner.id === "lina") healPower = Math.round(healPower * 1.25); // 莉娜被动
+    targets.forEach(t => {
+      const healed = Math.min(healPower, t.maxHp - t.hp);
+      t.hp += healed;
+      log(`💚 ${t.name} 回复 ${healed} 点生命！`, "heal");
+      showDamagePopup(t.id, `+${healed}`, "dmg-heal");
+    });
+  } else if (card.type === "buff") {
+    if (card.id === "rock_wall") {
+      gameState.players.filter(p => p.alive).forEach(p => {
+        addStatus(p, { type: "rock_wall", duration: 1 });
+      });
+      log(`🪨 全队获得岩壁减伤！`, "buff");
+    }
+  } else if (card.type === "special") {
+    if (card.id === "taunt_roar") {
+      addStatus(owner, { type: "shield", duration: 2, power: power });
+      addStatus(owner, { type: "taunt", duration: 1 });
+      log(`😤 ${owner.name} 嘲讽敌人并获得护盾！`, "buff");
+    }
+  }
+
+  // 激情获取
+  gainPassion(owner, 15);
+
+  gameState.selectedCard = null;
+  gameState.mergeCandidate = null;
+
+  checkBattleEnd();
+  render();
+}
+
+// ========== 伤害处理 ==========
+function dealDamage(target, damage, element) {
+  // 先扣护盾
+  const shield = target.statuses?.find(s => s.type === "shield");
+  if (shield) {
+    if (shield.power >= damage) {
+      shield.power -= damage;
+      log(`🛡 护盾吸收了 ${damage} 点伤害！`, "shield");
+      showDamagePopup(target.id, `护盾-${damage}`, "dmg-shield");
+      damage = 0;
+    } else {
+      damage -= shield.power;
+      log(`🛡 护盾吸收了 ${shield.power} 点伤害后破碎！`, "shield");
+      target.statuses = target.statuses.filter(s => s.type !== "shield");
+    }
+  }
+
+  if (damage > 0) {
+    target.hp = Math.max(0, target.hp - damage);
+    log(`💥 ${target.name} 受到 ${damage} 点${ELEMENT_NAMES[element]}属性伤害！`, "damage");
+    showDamagePopup(target.id, `-${damage}`, "dmg-normal");
+
+    // 受击激情
+    if (target.id && gameState.players.find(p => p.id === target.id)) {
+      const player = gameState.players.find(p => p.id === target.id);
+      if (player.alive) {
+        let passionGain = 10;
+        if (player.statuses.find(s => s.type === "stun" || s.type === "freeze" || s.type === "imprison")) {
+          passionGain = 5;
+        }
+        gainPassion(player, passionGain);
+      }
+    }
+
+    if (target.hp <= 0) {
+      target.alive = false;
+      log(`☠ ${target.name} 被击败了！`, "system");
+    }
+  }
+}
+
+// ========== 激情 ==========
+function gainPassion(player, amount) {
+  if (!player.alive) return;
+  let gain = amount;
+  // 激情涌动
+  if (player.statuses.find(s => s.type === "passion_buff")) gain = Math.round(gain * 1.5);
+  // 被控制时减半
+  if (player.statuses.find(s => s.type === "stun" || s.type === "freeze" || s.type === "imprison")) {
+    gain = Math.round(gain * 0.5);
+  }
+  player.passion = Math.min(player.maxPassion, player.passion + gain);
+  if (player.passion >= player.maxPassion) {
+    log(`🔥 ${player.name} 激情已满！可以释放协奏技！`, "ult");
+  }
+}
+
+function selectPlayerForUlt(playerId) {
+  if (gameState.phase !== "player" || gameState.battleOver) return;
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player || !player.alive) return;
+
+  if (player.passion >= player.maxPassion) {
+    if (gameState.selectedPlayer === playerId) {
+      gameState.selectedPlayer = null;
+    } else {
+      gameState.selectedPlayer = playerId;
+      gameState.selectedCard = null;
+    }
+  } else {
+    log(`⚠ ${player.name} 激情不足（${player.passion}/100）！`, "system");
+  }
+  render();
+}
+
+function releaseUlt() {
+  if (!gameState.selectedPlayer || gameState.phase !== "player") return;
+  const player = gameState.players.find(p => p.id === gameState.selectedPlayer);
+  if (!player || !player.alive || player.passion < player.maxPassion) return;
+
+  const ult = player.ult;
+  player.passion = 0;
+
+  log(`✨✨ ${player.name} 释放协奏技【${ult.name}】！✨✨`, "ult");
+
+  if (ult.target === "enemy") {
+    const target = gameState.enemy;
+    let totalDmg = 0;
+    for (let i = 0; i < ult.hits; i++) {
+      const dmg = calcDamage(player, target, ult.power, ult.element);
+      totalDmg += dmg;
+      dealDamage(target, dmg, ult.element);
+    }
+    log(`💥 协奏技造成总计 ${totalDmg} 点伤害！`, "ult");
+    // 附加效果
+    if (ult.effect?.type === "stun") {
+      addStatus(target, { type: "imprison", duration: 1 });
+      log(`🔒 ${target.name} 被辉光禁锢，下回合无法行动！`, "cc");
+    }
+  } else if (ult.target === "all_enemies") {
+    const target = gameState.enemy;
+    const dmg = calcDamage(player, target, ult.power, ult.element);
+    dealDamage(target, dmg, ult.element);
+    if (ult.effect?.type === "stun_chance" && Math.random() < ult.effect.chance) {
+      addStatus(target, { type: "stun", duration: 1 });
+      log(`💫 ${target.name} 被眩晕了！`, "cc");
+    }
+  } else if (ult.target === "all_allies") {
+    let healPower = ult.power;
+    if (player.id === "lina") healPower = Math.round(healPower * 1.25);
+    gameState.players.filter(p => p.alive).forEach(p => {
+      const healed = Math.min(healPower, p.maxHp - p.hp);
+      p.hp += healed;
+      log(`💚 ${p.name} 回复 ${healed} 点生命！`, "heal");
+      showDamagePopup(p.id, `+${healed}`, "dmg-heal");
+      // 清除减益
+      p.statuses = p.statuses.filter(s => !["def_down", "poison", "burn", "dark_corrosion", "light_brand"].includes(s.type));
+      // 激情涌动
+      addStatus(p, { type: "passion_buff", duration: 2 });
+    });
+    log(`✨ 全队减益被清除，获得激情涌动！`, "ult");
+  }
+
+  gameState.selectedPlayer = null;
+  checkBattleEnd();
+  render();
+}
+
+// ========== 合成 ==========
+function mergeCards() {
+  if (!gameState.selectedCard || !gameState.mergeCandidate) return;
+  const c1 = gameState.selectedCard;
+  const c2 = gameState.mergeCandidate;
+
+  const newTier = c1.tier + 1;
+  const mergedCard = {
+    ...c1,
+    uid: `${c1.id}_merged_${Date.now()}`,
+    tier: newTier,
+    basePower: c1.basePower
+  };
+
+  gameState.hand = gameState.hand.filter(c => c.uid !== c1.uid && c.uid !== c2.uid);
+  gameState.hand.push(mergedCard);
+  gameState.discard.push(c1, c2);
+
+  log(`🔮 ${c1.name} 合成升级为 ${newTier} 阶！`, "system");
+
+  gameState.selectedCard = null;
+  gameState.mergeCandidate = null;
+  render();
+}
+
+// ========== 状态效果 ==========
+function addStatus(target, status) {
+  if (!target.statuses) target.statuses = [];
+  const existing = target.statuses.find(s => s.type === status.type);
+  if (existing) {
+    if (status.stacks) {
+      existing.stacks = Math.min(5, (existing.stacks || 1) + status.stacks);
+    }
+    if (status.duration > existing.duration) existing.duration = status.duration;
+    if (status.power) existing.power = Math.max(existing.power, status.power);
+  } else {
+    target.statuses.push({ ...status, stacks: status.stacks || 1 });
+  }
+}
+
+function tickStatuses(target, isStart) {
+  if (!target.statuses) return;
+  const toRemove = [];
+  target.statuses.forEach(s => {
+    if (isStart) {
+      // DoT伤害
+      if (s.type === "poison") {
+        const dmg = s.power * s.stacks;
+        target.hp = Math.max(0, target.hp - dmg);
+        log(`☠ ${target.name} 受到 ${dmg} 点中毒伤害！`, "dot");
+        showDamagePopup(target.id, `-${dmg}`, "dmg-normal");
+        if (target.hp <= 0) target.alive = false;
+      }
+      if (s.type === "burn") {
+        const dmg = 30 * s.stacks;
+        target.hp = Math.max(0, target.hp - dmg);
+        log(`🔥 ${target.name} 受到 ${dmg} 点灼烧伤害！`, "dot");
+        if (target.hp <= 0) target.alive = false;
+      }
+    }
+    s.duration--;
+    if (s.duration <= 0) toRemove.push(s.type);
+    // 暗蚀每层回合结束-1
+    if (s.type === "dark_corrosion" && !isStart) {
+      s.stacks--;
+      if (s.stacks <= 0) toRemove.push(s.type);
+    }
+  });
+  target.statuses = target.statuses.filter(s => !toRemove.includes(s.type));
+}
+
+// ========== 回合结束 ==========
+function endPlayerTurn() {
+  if (gameState.phase !== "player" || gameState.battleOver) return;
+  gameState.phase = "enemy";
+  gameState.selectedCard = null;
+  gameState.selectedPlayer = null;
+  gameState.mergeCandidate = null;
+
+  log("— 敌人回合 —", "system");
+
+  // 敌人状态结算（回合开始）
+  tickStatuses(gameState.enemy, true);
+
+  // 检查控制
+  const isStunned = gameState.enemy.statuses.find(s => s.type === "stun" || s.type === "imprison" || s.type === "freeze");
+  if (isStunned) {
+    log(`💫 ${gameState.enemy.name} 被控制，无法行动！`, "cc");
+  } else if (gameState.enemy.alive) {
+    // 执行预告技能
+    executeEnemySkill(gameState.nextEnemySkill);
+  }
+
+  // 敌人状态结算（回合结束）
+  if (gameState.enemy.alive) tickStatuses(gameState.enemy, false);
+
+  // 玩家状态结算
+  gameState.players.forEach(p => {
+    if (p.alive) {
+      tickStatuses(p, true);
+      tickStatuses(p, false);
+    }
+  });
+
+  checkBattleEnd();
+  if (gameState.battleOver) { render(); return; }
+
+  // 下一回合
+  gameState.turn++;
+  gameState.phase = "player";
+  gameState.ap = gameState.maxAp;
+
+  // 更新敌人预告
+  gameState.enemySkillIndex = (gameState.enemySkillIndex + 1) % gameState.enemy.skillPattern.length;
+  const nextSkillId = gameState.enemy.skillPattern[gameState.enemySkillIndex];
+  gameState.nextEnemySkill = gameState.enemy.skills.find(s => s.id === nextSkillId);
+
+  // 抽牌
+  drawCards(2);
+
+  log(`— 第 ${gameState.turn} 回合开始 —`, "system");
+  render();
+}
+
+function executeEnemySkill(skill) {
+  const enemy = gameState.enemy;
+  log(`👹 ${enemy.name} 使用 ${skill.name}！`, "system");
+
+  if (skill.target === "all_allies") {
+    gameState.players.filter(p => p.alive).forEach(p => {
+      // 嘲讽检查
+      const taunt = gameState.players.find(pl => pl.statuses.find(s => s.type === "taunt") && pl.alive);
+      const actualTarget = taunt || p;
+      if (actualTarget.id !== p.id) return; // 有嘲讽时只打嘲讽者
+
+      let dmg = calcDamage(enemy, actualTarget, skill.power, skill.element);
+      // 暗蚀加成
+      const corrosion = actualTarget.statuses?.find(s => s.type === "dark_corrosion");
+      // 暗蚀是加在敌人身上的，不是玩家身上。这里是敌人攻击玩家，暗蚀在敌人身上时敌人伤害提升
+      const enemyCorrosion = enemy.statuses?.find(s => s.type === "dark_corrosion");
+      if (enemyCorrosion && skill.element === "dark") dmg = Math.round(dmg * (1 + 0.15 * enemyCorrosion.stacks));
+
+      dealDamage(actualTarget, dmg, skill.element);
+    });
+  } else {
+    // 单体：选最低血量
+    const alivePlayers = gameState.players.filter(p => p.alive);
+    const taunt = alivePlayers.find(p => p.statuses.find(s => s.type === "taunt"));
+    const target = taunt || alivePlayers.reduce((a, b) => a.hp < b.hp ? a : b);
+
+    let dmg = calcDamage(enemy, target, skill.power, skill.element);
+    const enemyCorrosion = enemy.statuses?.find(s => s.type === "dark_corrosion");
+    if (enemyCorrosion && skill.element === "dark") dmg = Math.round(dmg * (1 + 0.15 * enemyCorrosion.stacks));
+
+    dealDamage(target, dmg, skill.element);
+
+    // 附加效果
+    if (skill.effect?.type === "dark_corrosion") {
+      addStatus(enemy, { type: "dark_corrosion", stacks: skill.effect.stacks, duration: 99 });
+      log(`🌑 ${enemy.name} 获得 ${skill.effect.stacks} 层暗蚀！`, "debuff");
+    }
+  }
+}
+
+// ========== 胜负判定 ==========
+function checkBattleEnd() {
+  if (gameState.enemy.hp <= 0) {
+    gameState.battleOver = true;
+    gameState.phase = "ended";
+    setTimeout(() => showResult(true), 500);
+    return;
+  }
+  if (gameState.players.every(p => p.hp <= 0)) {
+    gameState.battleOver = true;
+    gameState.phase = "ended";
+    setTimeout(() => showResult(false), 500);
+  }
+}
+
+function showResult(win) {
+  const overlay = document.getElementById("resultOverlay");
+  const title = document.getElementById("resultTitle");
+  const desc = document.getElementById("resultDesc");
+  if (win) {
+    title.textContent = "🎉 胜利！";
+    title.className = "result-title result-win";
+    desc.textContent = `你在第 ${gameState.turn} 回合击败了虚蚀之影！`;
+  } else {
+    title.textContent = "💀 战败...";
+    title.className = "result-title result-lose";
+    desc.textContent = `全队在第 ${gameState.turn} 回合被击败。调整策略再试一次！`;
+  }
+  overlay.classList.add("show");
+}
+
+// ========== 渲染 ==========
+function render() {
+  renderEnemy();
+  renderPlayers();
+  renderHand();
+  renderAP();
+  renderButtons();
+  renderTargetPrompt();
+}
+
+function renderEnemy() {
+  const e = gameState.enemy;
+  document.getElementById("enemyName").textContent = `${e.name}（${ELEMENT_NAMES[e.element]}属性）`;
+  document.getElementById("enemyHpFill").style.width = `${(e.hp / e.maxHp) * 100}%`;
+  document.getElementById("enemyHpText").textContent = `${e.hp}/${e.maxHp}`;
+
+  // 状态
+  const statusDiv = document.getElementById("enemyStatus");
+  statusDiv.innerHTML = e.statuses.map(s => {
+    const cls = getStatusClass(s.type);
+    const label = getStatusLabel(s);
+    return `<span class="status-icon ${cls}">${label}</span>`;
+  }).join("");
+
+  // 预告
+  const intent = document.getElementById("enemyIntent");
+  if (e.statuses.find(s => s.type === "stun" || s.type === "imprison" || s.type === "freeze")) {
+    intent.textContent = "💫 被控制中，下回合无法行动";
+  } else if (gameState.nextEnemySkill) {
+    intent.textContent = `⚠ 下回合：${gameState.nextEnemySkill.name}（${gameState.nextEnemySkill.desc}）`;
+  }
+
+  // 可点击（作为攻击目标）
+  const enemyCard = document.getElementById("enemyCard");
+  enemyCard.onclick = () => {
+    if (gameState.selectedCard && (gameState.selectedCard.target === "enemy" || gameState.selectedCard.target === "all_enemies")) {
+      playCard("enemy", "enemy");
+    }
+  };
+  enemyCard.style.cursor = gameState.selectedCard?.target === "enemy" ? "pointer" : "default";
+}
+
+function renderPlayers() {
+  const container = document.getElementById("playerTeam");
+  container.innerHTML = gameState.players.map(p => {
+    const hpPct = (p.hp / p.maxHp) * 100;
+    const passionPct = (p.passion / p.maxPassion) * 100;
+    const isSelected = gameState.selectedPlayer === p.id;
+    const isTargetable = gameState.selectedCard &&
+      (gameState.selectedCard.target === "ally" || gameState.selectedCard.target === "self" || gameState.selectedCard.target === "all_allies");
+    const passionFull = p.passion >= p.maxPassion && p.alive;
+
+    return `
+      <div class="player-card ${p.alive ? "" : "dead"} ${isSelected ? "active" : ""} ${isTargetable && p.alive ? "targetable" : ""}"
+           id="player-${p.id}" onclick="handlePlayerClick('${p.id}')">
+        <div class="player-header">
+          <div class="player-avatar ${p.avatarClass}">${p.id === "aria" ? "⚔️" : p.id === "lina" ? "💧" : "🛡️"}</div>
+          <div>
+            <div class="player-name">${p.name}</div>
+            <span class="player-element elem-${p.element}">${ELEMENT_NAMES[p.element]}</span>
+          </div>
+        </div>
+        <div class="player-hp-bar">
+          <div class="player-hp-fill" style="width:${hpPct}%"></div>
+          <div class="player-hp-text">${p.hp}/${p.maxHp}</div>
+        </div>
+        <div class="passion-bar">
+          <div class="passion-fill ${passionFull ? "full" : ""}" style="width:${passionPct}%"></div>
+        </div>
+        <div style="font-size:10px;color:#aaa;margin-bottom:2px;">激情 ${p.passion}/100${passionFull ? " 🔥" : ""}</div>
+        <div class="player-status">
+          ${p.statuses.map(s => `<span class="status-icon ${getStatusClass(s.type)}">${getStatusLabel(s)}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function handlePlayerClick(playerId) {
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player || !player.alive) return;
+
+  // 如果选中了治疗/护盾卡，点击玩家作为目标
+  if (gameState.selectedCard && (gameState.selectedCard.target === "ally" || gameState.selectedCard.target === "self")) {
+    playCard("player", playerId);
+    return;
+  }
+
+  // 否则选择玩家释放协奏技
+  selectPlayerForUlt(playerId);
+}
+
+function renderHand() {
+  const container = document.getElementById("handCards");
+  document.getElementById("handCount").textContent = gameState.hand.length;
+  document.getElementById("deckCount").textContent = gameState.deck.length;
+  document.getElementById("discardCount").textContent = gameState.discard.length;
+  document.getElementById("turnCount").textContent = gameState.turn;
+
+  container.innerHTML = gameState.hand.map(card => {
+    const isSelected = gameState.selectedCard?.uid === card.uid;
+    const isMergeable = gameState.mergeCandidate?.uid === card.uid;
+    const disabled = gameState.ap <= 0 || gameState.phase !== "player";
+    const tierMult = card.tier === 1 ? 1 : card.tier === 2 ? 1.8 : 2.8;
+    const displayPower = Math.round(card.basePower * tierMult);
+
+    return `
+      <div class="card ${isSelected ? "selected" : ""} ${isMergeable ? "mergeable" : ""} ${disabled ? "disabled" : ""}"
+           onclick="selectCard('${card.uid}')">
+        <div class="card-tier tier-${card.tier}">${card.tier}阶</div>
+        <div class="card-element-icon">${ELEMENT_ICONS[card.element]}</div>
+        <div class="card-name">${card.name}</div>
+        <div class="card-type">${getCardTypeName(card.type)} · ${ELEMENT_NAMES[card.element]}</div>
+        <div class="card-power">${card.type === "buff" ? "" : displayPower}</div>
+        <div class="card-desc">${card.desc}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderAP() {
+  const container = document.getElementById("apOrbs");
+  let html = "";
+  for (let i = 0; i < gameState.maxAp; i++) {
+    html += `<div class="ap-orb ${i < gameState.ap ? "available" : ""}">${i < gameState.ap ? "◆" : "◇"}</div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderButtons() {
+  const mergeBtn = document.getElementById("mergeBtn");
+  const ultBtn = document.getElementById("ultBtn");
+  const endBtn = document.getElementById("endTurnBtn");
+
+  mergeBtn.style.display = (gameState.mergeCandidate && gameState.phase === "player") ? "inline-block" : "none";
+  ultBtn.style.display = (gameState.selectedPlayer && gameState.phase === "player") ? "inline-block" : "none";
+  endBtn.disabled = gameState.phase !== "player" || gameState.battleOver;
+
+  if (gameState.selectedPlayer) {
+    const p = gameState.players.find(pl => pl.id === gameState.selectedPlayer);
+    ultBtn.textContent = `✨ ${p?.name}：${p?.ult.name}`;
+  }
+}
+
+function renderTargetPrompt() {
+  const prompt = document.getElementById("targetPrompt");
+  if (gameState.selectedCard) {
+    const card = gameState.selectedCard;
+    if (card.target === "enemy") {
+      prompt.textContent = `🎯 请点击敌人使用【${card.name}】`;
+      prompt.classList.add("show");
+    } else if (card.target === "ally" || card.target === "self") {
+      prompt.textContent = `🎯 请点击队友使用【${card.name}】`;
+      prompt.classList.add("show");
+    } else {
+      prompt.classList.remove("show");
+    }
+  } else {
+    prompt.classList.remove("show");
+  }
+}
+
+// ========== 辅助函数 ==========
+function getStatusClass(type) {
+  if (["shield", "rock_wall", "passion_buff"].includes(type)) return "status-shield";
+  if (["def_down", "dark_corrosion", "light_brand"].includes(type)) return "status-debuff";
+  if (["poison", "burn"].includes(type)) return "status-dot";
+  if (["stun", "freeze", "imprison", "taunt"].includes(type)) return "status-cc";
+  return "status-buff";
+}
+
+function getStatusLabel(s) {
+  const labels = {
+    shield: `🛡护盾${s.power}`,
+    rock_wall: "🪨岩壁",
+    passion_buff: "🔥激情涌动",
+    def_down: `🔽防降${s.stacks}`,
+    dark_corrosion: `🌑暗蚀${s.stacks}`,
+    light_brand: "✨辉光烙印",
+    poison: `☠毒${s.stacks}`,
+    burn: `🔥灼${s.stacks}`,
+    stun: "💫眩晕",
+    freeze: "❄️冰冻",
+    imprison: "🔒禁锢",
+    taunt: "😤嘲讽"
+  };
+  return labels[s.type] || s.type;
+}
+
+function getCardTypeName(type) {
+  return { attack: "攻击", shield: "护盾", heal: "治疗", buff: "增益", special: "特殊" }[type] || type;
+}
+
+function log(msg, type = "") {
+  const logDiv = document.getElementById("battleLog");
+  const entry = document.createElement("div");
+  entry.className = `log-entry log-${type}`;
+  entry.textContent = msg;
+  logDiv.appendChild(entry);
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+function showDamagePopup(targetId, text, className) {
+  const el = document.getElementById(targetId === "enemy" ? "enemyCard" : `player-${targetId}`);
+  if (!el) return;
+  const popup = document.createElement("div");
+  popup.className = `damage-popup ${className}`;
+  popup.textContent = text;
+  popup.style.left = "50%";
+  popup.style.top = "30%";
+  el.style.position = "relative";
+  el.appendChild(popup);
+  setTimeout(() => popup.remove(), 1000);
+}
+
+function restartGame() {
+  document.getElementById("resultOverlay").classList.remove("show");
+  document.getElementById("battleLog").innerHTML = "";
+  initGame();
+}
+
+// ========== 启动 ==========
+window.onload = initGame;
+</script>
+</body>
+</html>

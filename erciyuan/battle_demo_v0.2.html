@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星轨协奏 - 战斗原型 v0.2（重返未来1999风格UI）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+  .game-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    background: linear-gradient(180deg, #2a2540 0%, #1e1b30 40%, #151325 100%);
+    overflow: hidden;
+  }
+  /* 背景装饰 */
+  .bg-decor {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .bg-wave-top {
+    position: absolute;
+    top: 60px; left: -5%;
+    width: 110%; height: 80px;
+    border-top: 2px solid rgba(255,180,50,0.3);
+    border-radius: 50%;
+    transform: rotate(-2deg);
+  }
+  .bg-wave-top2 {
+    position: absolute;
+    top: 70px; left: -5%;
+    width: 110%; height: 80px;
+    border-top: 1px solid rgba(100,150,255,0.2);
+    border-radius: 50%;
+    transform: rotate(1deg);
+  }
+  .bg-particles {
+    position: absolute;
+    width: 100%; height: 100%;
+  }
+  .particle {
+    position: absolute;
+    width: 3px; height: 3px;
+    background: rgba(255,200,100,0.4);
+    border-radius: 50%;
+    animation: float 8s infinite ease-in-out;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; }
+    50% { transform: translateY(-30px) translateX(10px); opacity: 0.7; }
+  }
+  /* 顶部栏 */
+  .top-bar {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 55px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    z-index: 10;
+    background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%);
+  }
+  .boss-hp-bar-container {
+    flex: 1;
+    max-width: 500px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .boss-hp-bar {
+    height: 18px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 9px;
+    overflow: hidden;
+    position: relative;
+  }
+  .boss-hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a8c3f, #6ab85a, #4a8c3f);
+    transition: width 0.5s ease;
+  }
+  .boss-hp-text {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #000;
+    color: #fff;
+  }
+  .top-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .top-btn {
+    width: 32px; height: 32px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: #ccc;
+    transition: all 0.2s;
+  }
+  .top-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  /* 左上信息 */
+  .top-left-info {
+    position: absolute;
+    top: 65px; left: 15px;
+    z-index: 10;
+    font-size: 12px;
+  }
+  .round-info {
+    background: rgba(0,0,0,0.5);
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    border-left: 3px solid #c9a86a;
+  }
+  .info-btn {
+    background: rgba(0,0,0,0.5);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .info-btn:hover { background: rgba(255,255,255,0.1); }
+  /* 左侧Boss区 */
+  .boss-area {
+    position: absolute;
+    left: 0; top: 120px;
+    width: 42%;
+    height: calc(100% - 280px);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+  }
+  .boss-visual {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .boss-sprite {
+    font-size: 120px;
+    filter: drop-shadow(0 0 30px rgba(150,50,200,0.5));
+    animation: bossIdle 3s infinite ease-in-out;
+  }
+  @keyframes bossIdle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .boss-aura {
+    position: absolute;
+    width: 250px; height: 250px;
+    background: radial-gradient(circle, rgba(150,50,200,0.2) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+  }
+  .boss-info-panel {
+    padding: 10px 15px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+  }
+  .boss-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .boss-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #ff8888;
+  }
+  .boss-element {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #6a0572;
+  }
+  .boss-status-row {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+    min-height: 22px;
+  }
+  .boss-hp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .boss-mini-hp {
+    flex: 1;
+    height: 10px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 5px;
+    overflow: hidden;
+    max-width: 200px;
+  }
+  .boss-mini-hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #cc3333, #ff5555);
+    transition: width 0.5s;
+  }
+  .boss-passion-bar {
+    width: 80px;
+    height: 6px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .boss-passion-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #cc44cc, #ff88ff);
+  }
+  /* Boss技能卡展示 */
+  .boss-cards-area {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 8;
+  }
+  .boss-card {
+    width: 60px; height: 80px;
+    border-radius: 6px;
+    border: 2px solid rgba(255,200,100,0.5);
+    background: linear-gradient(135deg, #3a2a1a, #2a1a0a);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #ddd;
+  }
+  .boss-card.back {
+    background: linear-gradient(135deg, #2a2a3a, #1a1a2a);
+    border-color: rgba(255,255,255,0.2);
+  }
+  .boss-card-icon { font-size: 20px; margin-bottom: 2px; }
+  .boss-card-type { font-size: 8px; color: #c9a86a; }
+  /* 右侧玩家队伍区 */
+  .team-area {
+    position: absolute;
+    right: 20px;
+    top: 160px;
+    width: 52%;
+    height: calc(100% - 320px);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .magic-circle {
+    position: absolute;
+    bottom: 20px;
+    width: 400px; height: 120px;
+    border: 2px solid rgba(255,180,80,0.3);
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,180,80,0.1) 0%, transparent 70%);
+    animation: rotate 20s linear infinite;
+  }
+  .magic-circle::before {
+    content: '';
+    position: absolute;
+    top: 15%; left: 15%;
+    width: 70%; height: 70%;
+    border: 1px solid rgba(255,180,80,0.2);
+    border-radius: 50%;
+  }
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .team-members {
+    display: flex;
+    gap: 15px;
+    position: relative;
+    z-index: 2;
+    margin-bottom: 30px;
+  }
+  .member-card {
+    width: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .member-card:hover { transform: translateY(-5px); }
+  .member-card.selected { transform: translateY(-8px); }
+  .member-card.selected .member-sprite { filter: drop-shadow(0 0 15px #ffcc00); }
+  .member-card.dead { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
+  .member-card.targetable::after {
+    content: '';
+    position: absolute;
+    top: -5px; left: -5px; right: -5px; bottom: -5px;
+    border: 2px solid #44ff44;
+    border-radius: 10px;
+    animation: pulse 1s infinite;
+  }
+  .member-status-top {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 3px;
+    min-height: 18px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .member-sprite {
+    font-size: 48px;
+    margin-bottom: 4px;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+    transition: all 0.2s;
+  }
+  .member-name {
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 3px;
+    text-shadow: 1px 1px 2px #000;
+  }
+  .member-hp-bar {
+    width: 90px;
+    height: 8px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 2px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .member-hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3a8a3a, #5aba5a);
+    transition: width 0.5s;
+  }
+  .member-hp-text {
+    font-size: 9px;
+    color: #ccc;
+    margin-bottom: 2px;
+  }
+  .member-passion-bar {
+    width: 70px;
+    height: 5px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .member-passion-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #aa44aa, #dd88dd);
+    transition: width 0.3s;
+  }
+  .member-passion-fill.full {
+    background: linear-gradient(90deg, #ff44ff, #ffaaff);
+    animation: glow 1s infinite;
+  }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 3px #ff44ff; }
+    50% { box-shadow: 0 0 8px #ff44ff; }
+  }
+  .member-passion-text {
+    font-size: 8px;
+    color: #aaa;
+    margin-top: 1px;
+  }
+  /* 敌人预告 */
+  .enemy-intent-banner {
+    position: absolute;
+    top: 130px;
+    right: 30px;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid rgba(255,200,80,0.4);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: #ffcc66;
+    z-index: 8;
+    max-width: 300px;
+  }
+  /* 底部手牌区 */
+  .hand-area {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%;
+    z-index: 10;
+    padding: 10px 20px 15px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 70%, transparent 100%);
+  }
+  .hand-info-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: #aaa;
+    padding: 0 10px;
+  }
+  .ap-display {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ap-orb {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #888;
+  }
+  .ap-orb.available {
+    background: linear-gradient(135deg, #c9a86a, #e8c88a);
+    border-color: #c9a86a;
+    color: #1a1a2e;
+    box-shadow: 0 0 8px rgba(201,168,106,0.5);
+  }
+  .hand-cards {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    min-height: 150px;
+    align-items: flex-end;
+  }
+  .card {
+    width: 105px;
+    height: 145px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-15px) scale(1.05);
+    z-index: 20;
+  }
+  .card.selected {
+    transform: translateY(-20px) scale(1.08);
+    z-index: 25;
+    box-shadow: 0 0 20px rgba(255,200,80,0.6);
+  }
+  .card.mergeable {
+    box-shadow: 0 0 15px rgba(80,255,80,0.5);
+  }
+  .card.disabled {
+    opacity: 0.4;
+    filter: grayscale(0.7);
+    pointer-events: none;
+  }
+  .card-header {
+    padding: 4px 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-tier {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: bold;
+    background: rgba(0,0,0,0.5);
+  }
+  .card-element-icon { font-size: 14px; }
+  .card-art {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    position: relative;
+  }
+  .card-art-bg {
+    position: absolute;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    opacity: 0.3;
+  }
+  .card-name {
+    padding: 3px 6px;
+    font-size: 11px;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  }
+  .card-type-bar {
+    padding: 2px 6px;
+    font-size: 9px;
+    text-align: center;
+    background: rgba(0,0,0,0.4);
+    letter-spacing: 1px;
+  }
+  .card-power {
+    padding: 3px 6px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    color: #ffcc44;
+    text-shadow: 1px 1px 2px #000;
+  }
+  /* 卡牌颜色主题 */
+  .card.attack { border-color: #cc4444; background: linear-gradient(180deg, #3a1a1a 0%, #2a1010 100%); }
+  .card.attack .card-type-bar { color: #ff8888; }
+  .card.shield { border-color: #4488cc; background: linear-gradient(180deg, #1a2a3a 0%, #101a2a 100%); }
+  .card.shield .card-type-bar { color: #88bbff; }
+  .card.heal { border-color: #44cc88; background: linear-gradient(180deg, #1a3a2a 0%, #102a1a 100%); }
+  .card.heal .card-type-bar { color: #88ffbb; }
+  .card.buff { border-color: #ccaa44; background: linear-gradient(180deg, #3a301a 0%, #2a2010 100%); }
+  .card.buff .card-type-bar { color: #ffdd88; }
+  .card.special { border-color: #aa44cc; background: linear-gradient(180deg, #2a1a3a 0%, #1a102a 100%); }
+  .card.special .card-type-bar { color: #dd88ff; }
+  /* 操作按钮区 */
+  .action-bar {
+    position: absolute;
+    bottom: 175px;
+    right: 30px;
+    display: flex;
+    gap: 8px;
+    z-index: 15;
+  }
+  .btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    letter-spacing: 1px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #c9a86a, #a8884a);
+    color: #1a1a2e;
+    border: 1px solid #e8c88a;
+  }
+  .btn-primary:hover { transform: scale(1.05); box-shadow: 0 0 12px rgba(201,168,106,0.5); }
+  .btn-primary:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-ult {
+    background: linear-gradient(135deg, #aa44aa, #882288);
+    color: #fff;
+    border: 1px solid #dd88dd;
+  }
+  .btn-ult:hover { transform: scale(1.05); box-shadow: 0 0 12px rgba(170,68,170,0.6); }
+  .btn-merge {
+    background: linear-gradient(135deg, #44aa44, #228822);
+    color: #fff;
+    border: 1px solid #88dd88;
+  }
+  .btn-merge:hover { transform: scale(1.05); box-shadow: 0 0 12px rgba(68,170,68,0.6); }
+  /* 目标选择提示 */
+  .target-prompt {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    border: 2px solid #ffcc44;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 14px;
+    color: #ffcc44;
+    z-index: 50;
+    display: none;
+    text-align: center;
+  }
+  .target-prompt.show { display: block; }
+  /* 战斗日志 */
+  .battle-log {
+    position: absolute;
+    left: 15px;
+    bottom: 180px;
+    width: 280px;
+    max-height: 150px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.6);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 11px;
+    line-height: 1.5;
+    z-index: 8;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .battle-log::-webkit-scrollbar { width: 4px; }
+  .battle-log::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+  .log-entry { margin-bottom: 2px; }
+  .log-damage { color: #ff8888; }
+  .log-heal { color: #88ff88; }
+  .log-shield { color: #88ccff; }
+  .log-system { color: #ffcc88; }
+  .log-ult { color: #ff88ff; font-weight: bold; }
+  .log-dot { color: #ffaa55; }
+  .log-debuff { color: #ff9999; }
+  .log-buff { color: #99ff99; }
+  .log-cc { color: #aaaaff; }
+  /* 状态图标 */
+  .status-icon {
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .status-buff { background: rgba(100,255,100,0.2); color: #88ff88; border: 1px solid #44ff44; }
+  .status-debuff { background: rgba(255,100,100,0.2); color: #ff8888; border: 1px solid #ff4444; }
+  .status-dot { background: rgba(255,150,50,0.2); color: #ffaa55; border: 1px solid #ff8800; }
+  .status-cc { background: rgba(150,150,255,0.2); color: #aaaaff; border: 1px solid #8888ff; }
+  .status-shield { background: rgba(100,200,255,0.2); color: #88ccff; border: 1px solid #44aaff; }
+  /* 伤害数字 */
+  .damage-popup {
+    position: absolute;
+    font-size: 22px;
+    font-weight: bold;
+    pointer-events: none;
+    animation: floatUp 1.2s ease-out forwards;
+    z-index: 100;
+    text-shadow: 2px 2px 4px #000;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    50% { transform: translateY(-25px) scale(1.2); }
+    100% { opacity: 0; transform: translateY(-50px) scale(0.9); }
+  }
+  .dmg-normal { color: #ff6666; }
+  .dmg-heal { color: #66ff66; }
+  .dmg-shield { color: #66ccff; }
+  /* 结算画面 */
+  .overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  .overlay.show { display: flex; }
+  .result-box {
+    background: linear-gradient(135deg, #2a2540, #1a1530);
+    border-radius: 16px;
+    padding: 50px 70px;
+    text-align: center;
+    border: 2px solid #c9a86a;
+    box-shadow: 0 0 40px rgba(201,168,106,0.3);
+  }
+  .result-title { font-size: 42px; font-weight: bold; margin-bottom: 15px; letter-spacing: 4px; }
+  .result-win { color: #66ff66; text-shadow: 0 0 20px rgba(102,255,102,0.5); }
+  .result-lose { color: #ff6666; text-shadow: 0 0 20px rgba(255,102,102,0.5); }
+  /* 底部装饰 */
+  .bottom-decor {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 60px;
+    pointer-events: none;
+    z-index: 9;
+  }
+  .bottom-wave {
+    position: absolute;
+    bottom: 0; left: -10%;
+    width: 120%; height: 50px;
+    border-bottom: 2px solid rgba(150,100,200,0.3);
+    border-radius: 50%;
+  }
+  .bottom-wave2 {
+    position: absolute;
+    bottom: 5px; left: -5%;
+    width: 110%; height: 40px;
+    border-bottom: 1px solid rgba(100,150,255,0.2);
+    border-radius: 50%;
+  }
+  .bird {
+    position: absolute;
+    font-size: 16px;
+    opacity: 0.6;
+    animation: fly 15s infinite linear;
+  }
+  @keyframes fly {
+    0% { transform: translateX(-50px) translateY(0); }
+    50% { transform: translateX(50vw) translateY(-15px); }
+    100% { transform: translateX(100vw) translateY(5px); }
+  }
+  /* 左下角DNA装饰 */
+  .dna-decor {
+    position: absolute;
+    bottom: 170px;
+    left: 15px;
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #888;
+  }
+  .dna-icon {
+    width: 30px; height: 30px;
+    border: 1px solid rgba(201,168,106,0.4);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .dna-number {
+    font-size: 20px;
+    font-weight: bold;
+    color: #c9a86a;
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <!-- 背景装饰 -->
+  <div class="bg-decor">
+    <div class="bg-wave-top"></div>
+    <div class="bg-wave-top2"></div>
+    <div class="bg-particles" id="particles"></div>
+  </div>
+
+  <!-- 顶部栏 -->
+  <div class="top-bar">
+    <div style="width:120px"></div>
+    <div class="boss-hp-bar-container">
+      <div class="boss-hp-bar">
+        <div class="boss-hp-fill" id="bossHpFill" style="width:100%"></div>
+        <div class="boss-hp-text" id="bossHpText">2000/2000</div>
+      </div>
+    </div>
+    <div class="top-buttons">
+      <div class="top-btn" title="设置">⚙</div>
+      <div class="top-btn" title="跳过">⏩</div>
+      <div class="top-btn" title="重置" onclick="restartGame()">🔄</div>
+      <div class="top-btn" title="暂停">⏸</div>
+    </div>
+  </div>
+
+  <!-- 左上信息 -->
+  <div class="top-left-info">
+    <div class="round-info">轮次:1/1 &nbsp; 回合:<span id="turnCount">1</span>/20</div>
+    <div class="info-btn">🔍 敌我情报</div>
+    <div class="info-btn">📋 敌方行动</div>
+  </div>
+
+  <!-- Boss技能卡展示 -->
+  <div class="boss-cards-area" id="bossCardsArea">
+    <div class="boss-card"><div class="boss-card-icon">🔥</div><div>暗影弹幕</div><div class="boss-card-type">Attack</div></div>
+    <div class="boss-card"><div class="boss-card-icon">🌑</div><div>暗蚀之触</div><div class="boss-card-type">Debuff</div></div>
+    <div class="boss-card back"><div class="boss-card-icon">❓</div></div>
+    <div class="boss-card back"><div class="boss-card-icon">❓</div></div>
+    <div class="boss-card back"><div class="boss-card-icon">❓</div></div>
+  </div>
+
+  <!-- 左侧Boss区 -->
+  <div class="boss-area">
+    <div class="boss-visual">
+      <div class="boss-aura"></div>
+      <div class="boss-sprite" id="bossSprite">👹</div>
+    </div>
+    <div class="boss-info-panel">
+      <div class="boss-name-row">
+        <span class="boss-name" id="bossName">虚蚀之影</span>
+        <span class="boss-element">暗</span>
+      </div>
+      <div class="boss-status-row" id="bossStatus"></div>
+      <div class="boss-hp-row">
+        <div class="boss-mini-hp"><div class="boss-mini-hp-fill" id="bossMiniHp" style="width:100%"></div></div>
+        <div class="boss-passion-bar"><div class="boss-passion-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 敌人预告 -->
+  <div class="enemy-intent-banner" id="enemyIntent">⚠ 下回合：暗影弹幕（群体暗属性伤害）</div>
+
+  <!-- 右侧玩家队伍区 -->
+  <div class="team-area">
+    <div class="magic-circle"></div>
+    <div class="team-members" id="teamMembers"></div>
+  </div>
+
+  <!-- 战斗日志 -->
+  <div class="battle-log" id="battleLog"></div>
+
+  <!-- 左下角DNA装饰 -->
+  <div class="dna-decor">
+    <div class="dna-icon">🧬</div>
+    <span class="dna-number" id="dnaNumber">24</span>
+  </div>
+
+  <!-- 操作按钮 -->
+  <div class="action-bar">
+    <button class="btn btn-merge" id="mergeBtn" style="display:none" onclick="mergeCards()">🔮 合成</button>
+    <button class="btn btn-ult" id="ultBtn" style="display:none" onclick="releaseUlt()">✨ 协奏技</button>
+    <button class="btn btn-primary" id="endTurnBtn" onclick="endPlayerTurn()">结束回合</button>
+  </div>
+
+  <!-- 底部手牌区 -->
+  <div class="hand-area">
+    <div class="hand-info-bar">
+      <div class="ap-display">
+        <span>行动点</span>
+        <div id="apOrbs"></div>
+      </div>
+      <div>手牌:<span id="handCount">0</span>/7 &nbsp; 牌库:<span id="deckCount">0</span> &nbsp; 弃牌:<span id="discardCount">0</span></div>
+    </div>
+    <div class="hand-cards" id="handCards"></div>
+  </div>
+
+  <!-- 底部装饰 -->
+  <div class="bottom-decor">
+    <div class="bottom-wave"></div>
+    <div class="bottom-wave2"></div>
+    <div class="bird" style="bottom:40px;animation-delay:0s">🕊</div>
+    <div class="bird" style="bottom:55px;animation-delay:5s">🕊</div>
+    <div class="bird" style="bottom:35px;animation-delay:10s">🕊</div>
+  </div>
+
+  <!-- 目标选择提示 -->
+  <div class="target-prompt" id="targetPrompt">请选择目标</div>
+
+  <!-- 结算画面 -->
+  <div class="overlay" id="resultOverlay">
+    <div class="result-box">
+      <div class="result-title" id="resultTitle"></div>
+      <p id="resultDesc" style="margin-bottom:25px;color:#aaa;font-size:14px;"></p>
+      <button class="btn btn-primary" onclick="restartGame()">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== 游戏配置 ==========
+const RULESET_ID = "stellar_concerto_v0.2";
+const ELEMENT_MULTIPLIER = {
+  light: { dark: 1.5 }, dark: { light: 1.5 },
+  fire: { wind: 1.5, water: 0.75 }, water: { fire: 1.5, earth: 0.75 },
+  wind: { earth: 1.5, fire: 0.75 }, earth: { water: 1.5, wind: 0.75 }
+};
+const ELEMENT_NAMES = { light:"辉", dark:"暗", fire:"火", water:"水", wind:"风", earth:"土" };
+const ELEMENT_ICONS = { light:"☀️", dark:"🌙", fire:"🔥", water:"💧", wind:"🌪️", earth:"🪨" };
+
+// ========== 角色定义 ==========
+const CHARACTERS = {
+  aria: {
+    id:"aria", name:"艾莉亚", element:"light", sprite:"⚔️",
+    maxHp:320, atk:60, def:25, spd:100,
+    cards:[
+      { id:"bright_slash", name:"辉刃斩", type:"attack", element:"light", target:"enemy", power:60, desc:"辉属性单体伤害", icon:"⚔️", count:4 },
+      { id:"star_thrust", name:"星芒突刺", type:"attack", element:"light", target:"enemy", power:80, desc:"无视30%防御", armorPen:0.3, icon:"✨", count:3 },
+      { id:"light_barrier", name:"辉光屏障", type:"shield", element:"light", target:"self", power:80, desc:"获得护盾", icon:"🛡️", count:3 }
+    ],
+    ult:{ id:"stellar_judgment", name:"星穹裁决", element:"light", target:"enemy", power:120, hits:3, desc:"3段伤害+禁锢", effect:{ type:"stun", duration:1 } }
+  },
+  lina: {
+    id:"lina", name:"莉娜", element:"water", sprite:"💧",
+    maxHp:280, atk:42, def:30, spd:95,
+    cards:[
+      { id:"water_bullet", name:"水弹", type:"attack", element:"water", target:"enemy", power:45, desc:"30%中毒", dotChance:0.3, icon:"💧", count:4 },
+      { id:"clear_shield", name:"清泉护盾", type:"shield", element:"water", target:"ally", power:100, desc:"目标护盾", icon:"🔵", count:3 },
+      { id:"healing_spring", name:"治愈之泉", type:"heal", element:"water", target:"all_allies", power:60, desc:"全队治疗", icon:"💚", count:3 }
+    ],
+    ult:{ id:"tide_of_life", name:"生命之潮", element:"water", target:"all_allies", power:150, hits:1, desc:"群疗+清减益", effect:{ type:"cleanse_debuff", passionBuff:0.5 } }
+  },
+  greg: {
+    id:"greg", name:"格雷", element:"earth", sprite:"🛡️",
+    maxHp:380, atk:40, def:45, spd:85,
+    cards:[
+      { id:"rock_strike", name:"岩击", type:"attack", element:"earth", target:"enemy", power:50, desc:"30%防御降低", debuffChance:0.3, icon:"🪨", count:4 },
+      { id:"rock_wall", name:"岩壁", type:"buff", element:"earth", target:"all_allies", power:20, desc:"全队减伤20%", icon:"⛰️", count:3 },
+      { id:"taunt_roar", name:"嘲讽怒吼", type:"special", element:"earth", target:"self", power:120, desc:"嘲讽+护盾", icon:"😤", count:3 }
+    ],
+    ult:{ id:"earth_quake", name:"大地崩裂", element:"earth", target:"all_enemies", power:140, hits:1, desc:"群攻+50%眩晕", effect:{ type:"stun_chance", chance:0.5 } }
+  }
+};
+
+// ========== 敌人定义 ==========
+const ENEMY_TEMPLATES = {
+  void_shadow: {
+    id:"void_shadow", name:"虚蚀之影", element:"dark", sprite:"👹",
+    maxHp:2000, atk:55, def:35, spd:100,
+    skills:[
+      { id:"shadow_barrage", name:"暗影弹幕", type:"attack", element:"dark", target:"all_allies", power:40, desc:"群体暗属性伤害", icon:"🔥" },
+      { id:"void_touch", name:"暗蚀之触", type:"attack", element:"dark", target:"enemy", power:70, desc:"单体+暗蚀", effect:{ type:"dark_corrosion", stacks:2 }, icon:"🌑" },
+      { id:"void_wave", name:"虚蚀冲击波", type:"attack", element:"dark", target:"all_allies", power:120, desc:"强力群体伤害", icon:"💥" }
+    ],
+    skillPattern:["shadow_barrage","void_touch","void_wave"]
+  }
+};
+
+// ========== 游戏状态 ==========
+let gameState = {
+  turn:1, phase:"player", ap:3, maxAp:3,
+  players:[], enemy:null, deck:[], hand:[], discard:[],
+  selectedCard:null, selectedPlayer:null, mergeCandidate:null,
+  enemySkillIndex:0, nextEnemySkill:null, battleOver:false
+};
+
+// ========== 初始化 ==========
+function initGame() {
+  gameState = {
+    turn:1, phase:"player", ap:3, maxAp:3,
+    players:[], enemy:null, deck:[], hand:[], discard:[],
+    selectedCard:null, selectedPlayer:null, mergeCandidate:null,
+    enemySkillIndex:0, nextEnemySkill:null, battleOver:false
+  };
+  ["aria","lina","greg"].forEach(id => {
+    const c = CHARACTERS[id];
+    gameState.players.push({ ...c, hp:c.maxHp, passion:0, maxPassion:100, statuses:[], alive:true });
+  });
+  const e = ENEMY_TEMPLATES.void_shadow;
+  gameState.enemy = { ...e, hp:e.maxHp, statuses:[], alive:true };
+  buildDeck();
+  gameState.nextEnemySkill = gameState.enemy.skills[0];
+  drawCards(5);
+  createParticles();
+  log("⚔ 战斗开始！虚蚀之影出现了！", "system");
+  log("💡 点击手牌选中，再点击目标出牌。", "system");
+  render();
+}
+
+function buildDeck() {
+  gameState.deck = [];
+  gameState.players.forEach(p => {
+    p.cards.forEach(cardDef => {
+      for (let i = 0; i < cardDef.count; i++) {
+        gameState.deck.push({ ...cardDef, uid:`${p.id}_${cardDef.id}_${i}_${Math.random()}`, owner:p.id, tier:1, basePower:cardDef.power });
+      }
+    });
+  });
+  shuffleArray(gameState.deck);
+}
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function createParticles() {
+  const container = document.getElementById("particles");
+  container.innerHTML = "";
+  for (let i = 0; i < 15; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.left = Math.random() * 100 + "%";
+    p.style.top = Math.random() * 100 + "%";
+    p.style.animationDelay = Math.random() * 8 + "s";
+    p.style.animationDuration = (6 + Math.random() * 6) + "s";
+    container.appendChild(p);
+  }
+}
+
+// ========== 抽牌 ==========
+function drawCards(count) {
+  for (let i = 0; i < count; i++) {
+    if (gameState.hand.length >= 7) { log("⚠ 手牌已满！", "system"); break; }
+    if (gameState.deck.length === 0) {
+      if (gameState.discard.length === 0) break;
+      gameState.deck = [...gameState.discard];
+      gameState.discard = [];
+      shuffleArray(gameState.deck);
+      log("🔄 弃牌堆洗入牌库", "system");
+    }
+    gameState.hand.push(gameState.deck.pop());
+  }
+}
+
+// ========== 伤害计算 ==========
+function calcDamage(attacker, defender, basePower, element, armorPen = 0) {
+  let atk = attacker.atk;
+  let def = defender.def;
+  const defDown = defender.statuses?.find(s => s.type === "def_down");
+  if (defDown) def *= (1 - 0.15 * defDown.stacks);
+  let damage = basePower * (atk / 50);
+  const elemMult = ELEMENT_MULTIPLIER[element]?.[defender.element] || 1.0;
+  damage *= elemMult;
+  if (attacker.id === "aria" && defender.element === "dark") damage *= 1.2;
+  const brand = defender.statuses?.find(s => s.type === "light_brand");
+  if (brand && element === "light") damage *= 1.2;
+  const corrosion = defender.statuses?.find(s => s.type === "dark_corrosion");
+  if (corrosion && element === "dark") damage *= (1 + 0.15 * corrosion.stacks);
+  const damageReduction = def / (def + 100);
+  damage *= (1 - damageReduction * (1 - armorPen));
+  const rockWall = defender.statuses?.find(s => s.type === "rock_wall");
+  if (rockWall) damage *= 0.8;
+  damage *= (0.95 + Math.random() * 0.1);
+  return Math.max(1, Math.round(damage));
+}
+
+// ========== 出牌 ==========
+function selectCard(cardUid) {
+  if (gameState.phase !== "player" || gameState.battleOver) return;
+  if (gameState.ap <= 0) { log("⚠ 行动点不足！", "system"); return; }
+  const card = gameState.hand.find(c => c.uid === cardUid);
+  if (!card) return;
+  if (gameState.selectedCard?.uid === cardUid) {
+    gameState.selectedCard = null;
+    gameState.mergeCandidate = null;
+  } else {
+    gameState.selectedCard = card;
+    gameState.mergeCandidate = gameState.hand.find(c =>
+      c.uid !== card.uid && c.id === card.id && c.tier === card.tier && card.tier < 3
+    );
+  }
+  gameState.selectedPlayer = null;
+  render();
+}
+
+function playCard(targetType, targetId) {
+  if (!gameState.selectedCard || gameState.phase !== "player") return;
+  const card = gameState.selectedCard;
+  if (card.target === "enemy" && targetType !== "enemy") return;
+  if ((card.target === "ally" || card.target === "self") && targetType !== "player") return;
+  const owner = gameState.players.find(p => p.id === card.owner);
+  if (!owner || !owner.alive) return;
+  gameState.ap--;
+  gameState.hand = gameState.hand.filter(c => c.uid !== card.uid);
+  gameState.discard.push(card);
+  const tierMult = card.tier === 1 ? 1.0 : card.tier === 2 ? 1.8 : 2.8;
+  const power = Math.round(card.basePower * tierMult);
+  log(`🎴 ${owner.name} 使用 ${card.name}（${card.tier}阶）`, "system");
+
+  if (card.type === "attack") {
+    const target = gameState.enemy;
+    const dmg = calcDamage(owner, target, power, card.element, card.armorPen || 0);
+    dealDamage(target, dmg, card.element, "bossSprite");
+    if (card.dotChance && Math.random() < card.dotChance) {
+      addStatus(target, { type:"poison", stacks:1, duration:3, power:25 });
+      log(`☠ ${target.name} 中毒了！`, "dot");
+    }
+    if (card.debuffChance && Math.random() < card.debuffChance) {
+      addStatus(target, { type:"def_down", stacks:1, duration:2 });
+      log(`🔽 ${target.name} 防御降低！`, "debuff");
+    }
+    if (card.id === "bright_slash" && card.tier >= 3) {
+      addStatus(target, { type:"light_brand", duration:2 });
+      log(`✨ ${target.name} 被辉光烙印！`, "buff");
+    }
+  } else if (card.type === "shield") {
+    const target = card.target === "self" ? owner : gameState.players.find(p => p.id === targetId);
+    if (target) {
+      addStatus(target, { type:"shield", duration:2, power:power });
+      log(`🛡 ${target.name} 获得 ${power} 点护盾！`, "shield");
+      showDamagePopup(target.id, `+${power}护盾`, "dmg-shield");
+    }
+  } else if (card.type === "heal") {
+    const targets = card.target === "all_allies" ? gameState.players.filter(p => p.alive) : [gameState.players.find(p => p.id === targetId)];
+    let healPower = power;
+    if (owner.id === "lina") healPower = Math.round(healPower * 1.25);
+    targets.forEach(t => {
+      const healed = Math.min(healPower, t.maxHp - t.hp);
+      t.hp += healed;
+      log(`💚 ${t.name} 回复 ${healed} 点生命！`, "heal");
+      showDamagePopup(t.id, `+${healed}`, "dmg-heal");
+    });
+  } else if (card.type === "buff") {
+    if (card.id === "rock_wall") {
+      gameState.players.filter(p => p.alive).forEach(p => addStatus(p, { type:"rock_wall", duration:1 }));
+      log(`🪨 全队获得岩壁减伤！`, "buff");
+    }
+  } else if (card.type === "special") {
+    if (card.id === "taunt_roar") {
+      addStatus(owner, { type:"shield", duration:2, power:power });
+      addStatus(owner, { type:"taunt", duration:1 });
+      log(`😤 ${owner.name} 嘲讽敌人并获得护盾！`, "buff");
+    }
+  }
+  gainPassion(owner, 15);
+  gameState.selectedCard = null;
+  gameState.mergeCandidate = null;
+  checkBattleEnd();
+  render();
+}
+
+// ========== 伤害处理 ==========
+function dealDamage(target, damage, element, popupTargetId) {
+  const shield = target.statuses?.find(s => s.type === "shield");
+  if (shield) {
+    if (shield.power >= damage) {
+      shield.power -= damage;
+      log(`🛡 护盾吸收了 ${damage} 点伤害！`, "shield");
+      showDamagePopup(popupTargetId || target.id, `护盾-${damage}`, "dmg-shield");
+      damage = 0;
+    } else {
+      damage -= shield.power;
+      log(`🛡 护盾吸收 ${shield.power} 后破碎！`, "shield");
+      target.statuses = target.statuses.filter(s => s.type !== "shield");
+    }
+  }
+  if (damage > 0) {
+    target.hp = Math.max(0, target.hp - damage);
+    log(`💥 ${target.name} 受到 ${damage} 点${ELEMENT_NAMES[element]}属性伤害！`, "damage");
+    showDamagePopup(popupTargetId || target.id, `-${damage}`, "dmg-normal");
+    if (target.id && gameState.players.find(p => p.id === target.id)) {
+      const player = gameState.players.find(p => p.id === target.id);
+      if (player.alive) {
+        let passionGain = 10;
+        if (player.statuses.find(s => ["stun","freeze","imprison"].includes(s.type))) passionGain = 5;
+        gainPassion(player, passionGain);
+      }
+    }
+    if (target.hp <= 0) { target.alive = false; log(`☠ ${target.name} 被击败了！`, "system"); }
+  }
+}
+
+// ========== 激情 ==========
+function gainPassion(player, amount) {
+  if (!player.alive) return;
+  let gain = amount;
+  if (player.statuses.find(s => s.type === "passion_buff")) gain = Math.round(gain * 1.5);
+  if (player.statuses.find(s => ["stun","freeze","imprison"].includes(s.type))) gain = Math.round(gain * 0.5);
+  player.passion = Math.min(player.maxPassion, player.passion + gain);
+  if (player.passion >= player.maxPassion) log(`🔥 ${player.name} 激情已满！`, "ult");
+}
+
+function selectPlayerForUlt(playerId) {
+  if (gameState.phase !== "player" || gameState.battleOver) return;
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player || !player.alive) return;
+  if (player.passion >= player.maxPassion) {
+    gameState.selectedPlayer = gameState.selectedPlayer === playerId ? null : playerId;
+    gameState.selectedCard = null;
+  } else {
+    log(`⚠ ${player.name} 激情不足（${player.passion}/100）！`, "system");
+  }
+  render();
+}
+
+function releaseUlt() {
+  if (!gameState.selectedPlayer || gameState.phase !== "player") return;
+  const player = gameState.players.find(p => p.id === gameState.selectedPlayer);
+  if (!player || !player.alive || player.passion < player.maxPassion) return;
+  const ult = player.ult;
+  player.passion = 0;
+  log(`✨✨ ${player.name} 释放协奏技【${ult.name}】！✨✨`, "ult");
+  if (ult.target === "enemy") {
+    const target = gameState.enemy;
+    let total = 0;
+    for (let i = 0; i < ult.hits; i++) {
+      const dmg = calcDamage(player, target, ult.power, ult.element);
+      total += dmg;
+      dealDamage(target, dmg, ult.element, "bossSprite");
+    }
+    log(`💥 协奏技造成总计 ${total} 点伤害！`, "ult");
+    if (ult.effect?.type === "stun") {
+      addStatus(target, { type:"imprison", duration:1 });
+      log(`🔒 ${target.name} 被辉光禁锢！`, "cc");
+    }
+  } else if (ult.target === "all_enemies") {
+    const target = gameState.enemy;
+    const dmg = calcDamage(player, target, ult.power, ult.element);
+    dealDamage(target, dmg, ult.element, "bossSprite");
+    if (ult.effect?.type === "stun_chance" && Math.random() < ult.effect.chance) {
+      addStatus(target, { type:"stun", duration:1 });
+      log(`💫 ${target.name} 被眩晕了！`, "cc");
+    }
+  } else if (ult.target === "all_allies") {
+    let healPower = ult.power;
+    if (player.id === "lina") healPower = Math.round(healPower * 1.25);
+    gameState.players.filter(p => p.alive).forEach(p => {
+      const healed = Math.min(healPower, p.maxHp - p.hp);
+      p.hp += healed;
+      log(`💚 ${p.name} 回复 ${healed} 点生命！`, "heal");
+      showDamagePopup(p.id, `+${healed}`, "dmg-heal");
+      p.statuses = p.statuses.filter(s => !["def_down","poison","burn","dark_corrosion","light_brand"].includes(s.type));
+      addStatus(p, { type:"passion_buff", duration:2 });
+    });
+    log(`✨ 全队减益清除，获得激情涌动！`, "ult");
+  }
+  gameState.selectedPlayer = null;
+  checkBattleEnd();
+  render();
+}
+
+// ========== 合成 ==========
+function mergeCards() {
+  if (!gameState.selectedCard || !gameState.mergeCandidate) return;
+  const c1 = gameState.selectedCard, c2 = gameState.mergeCandidate;
+  const mergedCard = { ...c1, uid:`${c1.id}_merged_${Date.now()}`, tier:c1.tier + 1, basePower:c1.basePower };
+  gameState.hand = gameState.hand.filter(c => c.uid !== c1.uid && c.uid !== c2.uid);
+  gameState.hand.push(mergedCard);
+  gameState.discard.push(c1, c2);
+  log(`🔮 ${c1.name} 合成升级为 ${c1.tier + 1} 阶！`, "system");
+  gameState.selectedCard = null;
+  gameState.mergeCandidate = null;
+  render();
+}
+
+// ========== 状态效果 ==========
+function addStatus(target, status) {
+  if (!target.statuses) target.statuses = [];
+  const existing = target.statuses.find(s => s.type === status.type);
+  if (existing) {
+    if (status.stacks) existing.stacks = Math.min(5, (existing.stacks || 1) + status.stacks);
+    if (status.duration > existing.duration) existing.duration = status.duration;
+    if (status.power) existing.power = Math.max(existing.power, status.power);
+  } else {
+    target.statuses.push({ ...status, stacks: status.stacks || 1 });
+  }
+}
+
+function tickStatuses(target, isStart) {
+  if (!target.statuses) return;
+  const toRemove = [];
+  target.statuses.forEach(s => {
+    if (isStart) {
+      if (s.type === "poison") {
+        const dmg = s.power * s.stacks;
+        target.hp = Math.max(0, target.hp - dmg);
+        log(`☠ ${target.name} 受到 ${dmg} 点中毒伤害！`, "dot");
+        if (target.id) showDamagePopup(target.id, `-${dmg}`, "dmg-normal");
+        if (target.hp <= 0) target.alive = false;
+      }
+      if (s.type === "burn") {
+        const dmg = 30 * s.stacks;
+        target.hp = Math.max(0, target.hp - dmg);
+        log(`🔥 ${target.name} 受到 ${dmg} 点灼烧伤害！`, "dot");
+        if (target.hp <= 0) target.alive = false;
+      }
+    }
+    s.duration--;
+    if (s.duration <= 0) toRemove.push(s.type);
+    if (s.type === "dark_corrosion" && !isStart) {
+      s.stacks--;
+      if (s.stacks <= 0) toRemove.push(s.type);
+    }
+  });
+  target.statuses = target.statuses.filter(s => !toRemove.includes(s.type));
+}
+
+// ========== 回合结束 ==========
+function endPlayerTurn() {
+  if (gameState.phase !== "player" || gameState.battleOver) return;
+  gameState.phase = "enemy";
+  gameState.selectedCard = null;
+  gameState.selectedPlayer = null;
+  gameState.mergeCandidate = null;
+  log("— 敌人回合 —", "system");
+  tickStatuses(gameState.enemy, true);
+  const isStunned = gameState.enemy.statuses.find(s => ["stun","imprison","freeze"].includes(s.type));
+  if (isStunned) {
+    log(`💫 ${gameState.enemy.name} 被控制，无法行动！`, "cc");
+  } else if (gameState.enemy.alive) {
+    executeEnemySkill(gameState.nextEnemySkill);
+  }
+  if (gameState.enemy.alive) tickStatuses(gameState.enemy, false);
+  gameState.players.forEach(p => { if (p.alive) { tickStatuses(p, true); tickStatuses(p, false); } });
+  checkBattleEnd();
+  if (gameState.battleOver) { render(); return; }
+  gameState.turn++;
+  gameState.phase = "player";
+  gameState.ap = gameState.maxAp;
+  gameState.enemySkillIndex = (gameState.enemySkillIndex + 1) % gameState.enemy.skillPattern.length;
+  const nextSkillId = gameState.enemy.skillPattern[gameState.enemySkillIndex];
+  gameState.nextEnemySkill = gameState.enemy.skills.find(s => s.id === nextSkillId);
+  drawCards(2);
+  log(`— 第 ${gameState.turn} 回合开始 —`, "system");
+  render();
+}
+
+function executeEnemySkill(skill) {
+  const enemy = gameState.enemy;
+  log(`👹 ${enemy.name} 使用 ${skill.name}！`, "system");
+  if (skill.target === "all_allies") {
+    gameState.players.filter(p => p.alive).forEach(p => {
+      const taunt = gameState.players.find(pl => pl.statuses.find(s => s.type === "taunt") && pl.alive);
+      if (taunt && taunt.id !== p.id) return;
+      let dmg = calcDamage(enemy, taunt || p, skill.power, skill.element);
+      const enemyCorrosion = enemy.statuses?.find(s => s.type === "dark_corrosion");
+      if (enemyCorrosion && skill.element === "dark") dmg = Math.round(dmg * (1 + 0.15 * enemyCorrosion.stacks));
+      dealDamage(taunt || p, dmg, skill.element, (taunt || p).id);
+    });
+  } else {
+    const alivePlayers = gameState.players.filter(p => p.alive);
+    const taunt = alivePlayers.find(p => p.statuses.find(s => s.type === "taunt"));
+    const target = taunt || alivePlayers.reduce((a, b) => a.hp < b.hp ? a : b);
+    let dmg = calcDamage(enemy, target, skill.power, skill.element);
+    const enemyCorrosion = enemy.statuses?.find(s => s.type === "dark_corrosion");
+    if (enemyCorrosion && skill.element === "dark") dmg = Math.round(dmg * (1 + 0.15 * enemyCorrosion.stacks));
+    dealDamage(target, dmg, skill.element, target.id);
+    if (skill.effect?.type === "dark_corrosion") {
+      addStatus(enemy, { type:"dark_corrosion", stacks:skill.effect.stacks, duration:99 });
+      log(`🌑 ${enemy.name} 获得 ${skill.effect.stacks} 层暗蚀！`, "debuff");
+    }
+  }
+}
+
+// ========== 胜负判定 ==========
+function checkBattleEnd() {
+  if (gameState.enemy.hp <= 0) {
+    gameState.battleOver = true;
+    gameState.phase = "ended";
+    setTimeout(() => showResult(true), 600);
+    return;
+  }
+  if (gameState.players.every(p => p.hp <= 0)) {
+    gameState.battleOver = true;
+    gameState.phase = "ended";
+    setTimeout(() => showResult(false), 600);
+  }
+}
+
+function showResult(win) {
+  const overlay = document.getElementById("resultOverlay");
+  const title = document.getElementById("resultTitle");
+  const desc = document.getElementById("resultDesc");
+  if (win) { title.textContent = "🎉 胜 利"; title.className = "result-title result-win"; desc.textContent = `你在第 ${gameState.turn} 回合击败了虚蚀之影！`; }
+  else { title.textContent = "💀 战 败"; title.className = "result-title result-lose"; desc.textContent = `全队在第 ${gameState.turn} 回合被击败。调整策略再试一次！`; }
+  overlay.classList.add("show");
+}
+
+// ========== 渲染 ==========
+function render() {
+  renderBoss();
+  renderTeam();
+  renderHand();
+  renderAP();
+  renderButtons();
+  renderTargetPrompt();
+  renderBossCards();
+}
+
+function renderBoss() {
+  const e = gameState.enemy;
+  document.getElementById("bossName").textContent = e.name;
+  document.getElementById("bossHpText").textContent = `${e.hp}/${e.maxHp}`;
+  document.getElementById("bossHpFill").style.width = `${(e.hp/e.maxHp)*100}%`;
+  document.getElementById("bossMiniHp").style.width = `${(e.hp/e.maxHp)*100}%`;
+  document.getElementById("turnCount").textContent = gameState.turn;
+  document.getElementById("dnaNumber").textContent = Math.max(0, 24 - gameState.turn);
+
+  const statusDiv = document.getElementById("bossStatus");
+  statusDiv.innerHTML = e.statuses.map(s => `<span class="status-icon ${getStatusClass(s.type)}">${getStatusLabel(s)}</span>`).join("");
+
+  const intent = document.getElementById("enemyIntent");
+  if (e.statuses.find(s => ["stun","imprison","freeze"].includes(s.type))) {
+    intent.textContent = "💫 被控制中，下回合无法行动";
+  } else if (gameState.nextEnemySkill) {
+    intent.textContent = `⚠ 下回合：${gameState.nextEnemySkill.name}（${gameState.nextEnemySkill.desc}）`;
+  }
+
+  const bossCard = document.getElementById("bossSprite");
+  bossCard.onclick = () => {
+    if (gameState.selectedCard && (gameState.selectedCard.target === "enemy" || gameState.selectedCard.target === "all_enemies")) {
+      playCard("enemy", "enemy");
+    }
+  };
+  bossCard.style.cursor = gameState.selectedCard?.target === "enemy" ? "pointer" : "default";
+}
+
+function renderBossCards() {
+  const area = document.getElementById("bossCardsArea");
+  const currentIdx = gameState.enemySkillIndex;
+  const pattern = gameState.enemy.skillPattern;
+  let html = "";
+  for (let i = 0; i < 5; i++) {
+    if (i < 2) {
+      const skillId = pattern[(currentIdx + i) % pattern.length];
+      const skill = gameState.enemy.skills.find(s => s.id === skillId);
+      html += `<div class="boss-card"><div class="boss-card-icon">${skill.icon}</div><div style="font-size:8px">${skill.name}</div><div class="boss-card-type">${i === 0 ? "Current" : "Next"}</div></div>`;
+    } else {
+      html += `<div class="boss-card back"><div class="boss-card-icon">❓</div></div>`;
+    }
+  }
+  area.innerHTML = html;
+}
+
+function renderTeam() {
+  const container = document.getElementById("teamMembers");
+  container.innerHTML = gameState.players.map(p => {
+    const hpPct = (p.hp / p.maxHp) * 100;
+    const passionPct = (p.passion / p.maxPassion) * 100;
+    const isSelected = gameState.selectedPlayer === p.id;
+    const isTargetable = gameState.selectedCard && (gameState.selectedCard.target === "ally" || gameState.selectedCard.target === "self");
+    const passionFull = p.passion >= p.maxPassion && p.alive;
+    return `
+      <div class="member-card ${p.alive ? "" : "dead"} ${isSelected ? "selected" : ""} ${isTargetable && p.alive ? "targetable" : ""}"
+           id="player-${p.id}" onclick="handlePlayerClick('${p.id}')">
+        <div class="member-status-top">
+          ${p.statuses.map(s => `<span class="status-icon ${getStatusClass(s.type)}">${getStatusLabel(s)}</span>`).join("")}
+        </div>
+        <div class="member-sprite">${p.sprite}</div>
+        <div class="member-name">${p.name}</div>
+        <div class="member-hp-bar"><div class="member-hp-fill" style="width:${hpPct}%"></div></div>
+        <div class="member-hp-text">${p.hp}/${p.maxHp}</div>
+        <div class="member-passion-bar"><div class="member-passion-fill ${passionFull ? "full" : ""}" style="width:${passionPct}%"></div></div>
+        <div class="member-passion-text">激情 ${p.passion}/100${passionFull ? " 🔥" : ""}</div>
+      </div>`;
+  }).join("");
+}
+
+function handlePlayerClick(playerId) {
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player || !player.alive) return;
+  if (gameState.selectedCard && (gameState.selectedCard.target === "ally" || gameState.selectedCard.target === "self")) {
+    playCard("player", playerId);
+    return;
+  }
+  selectPlayerForUlt(playerId);
+}
+
+function renderHand() {
+  const container = document.getElementById("handCards");
+  document.getElementById("handCount").textContent = gameState.hand.length;
+  document.getElementById("deckCount").textContent = gameState.deck.length;
+  document.getElementById("discardCount").textContent = gameState.discard.length;
+  container.innerHTML = gameState.hand.map(card => {
+    const isSelected = gameState.selectedCard?.uid === card.uid;
+    const isMergeable = gameState.mergeCandidate?.uid === card.uid;
+    const disabled = gameState.ap <= 0 || gameState.phase !== "player";
+    const tierMult = card.tier === 1 ? 1 : card.tier === 2 ? 1.8 : 2.8;
+    const displayPower = Math.round(card.basePower * tierMult);
+    return `
+      <div class="card ${card.type} ${isSelected ? "selected" : ""} ${isMergeable ? "mergeable" : ""} ${disabled ? "disabled" : ""}"
+           onclick="selectCard('${card.uid}')">
+        <div class="card-header">
+          <span class="card-tier">${card.tier}阶</span>
+          <span class="card-element-icon">${ELEMENT_ICONS[card.element]}</span>
+        </div>
+        <div class="card-art">
+          <div class="card-art-bg" style="background:${getCardArtColor(card.element)}"></div>
+          <span>${card.icon}</span>
+        </div>
+        <div class="card-name">${card.name}</div>
+        <div class="card-type-bar">${getCardTypeName(card.type)} · ${ELEMENT_NAMES[card.element]}</div>
+        <div class="card-power">${card.type === "buff" ? "" : displayPower}</div>
+      </div>`;
+  }).join("");
+}
+
+function getCardArtColor(element) {
+  const colors = { light:"rgba(255,215,0,0.3)", dark:"rgba(150,50,200,0.3)", fire:"rgba(255,100,50,0.3)", water:"rgba(50,150,255,0.3)", wind:"rgba(150,255,200,0.3)", earth:"rgba(180,120,60,0.3)" };
+  return colors[element] || "rgba(255,255,255,0.2)";
+}
+
+function renderAP() {
+  const container = document.getElementById("apOrbs");
+  let html = "";
+  for (let i = 0; i < gameState.maxAp; i++) {
+    html += `<div class="ap-orb ${i < gameState.ap ? "available" : ""}">${i < gameState.ap ? "◆" : "◇"}</div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderButtons() {
+  const mergeBtn = document.getElementById("mergeBtn");
+  const ultBtn = document.getElementById("ultBtn");
+  const endBtn = document.getElementById("endTurnBtn");
+  mergeBtn.style.display = (gameState.mergeCandidate && gameState.phase === "player") ? "inline-block" : "none";
+  ultBtn.style.display = (gameState.selectedPlayer && gameState.phase === "player") ? "inline-block" : "none";
+  endBtn.disabled = gameState.phase !== "player" || gameState.battleOver;
+  if (gameState.selectedPlayer) {
+    const p = gameState.players.find(pl => pl.id === gameState.selectedPlayer);
+    ultBtn.textContent = `✨ ${p?.ult.name || "协奏技"}`;
+  }
+}
+
+function renderTargetPrompt() {
+  const prompt = document.getElementById("targetPrompt");
+  if (gameState.selectedCard) {
+    const card = gameState.selectedCard;
+    if (card.target === "enemy") { prompt.textContent = `🎯 点击 Boss 使用【${card.name}】`; prompt.classList.add("show"); }
+    else if (card.target === "ally" || card.target === "self") { prompt.textContent = `🎯 点击队友使用【${card.name}】`; prompt.classList.add("show"); }
+    else prompt.classList.remove("show");
+  } else prompt.classList.remove("show");
+}
+
+// ========== 辅助函数 ==========
+function getStatusClass(type) {
+  if (["shield","rock_wall","passion_buff"].includes(type)) return "status-shield";
+  if (["def_down","dark_corrosion","light_brand"].includes(type)) return "status-debuff";
+  if (["poison","burn"].includes(type)) return "status-dot";
+  if (["stun","freeze","imprison","taunt"].includes(type)) return "status-cc";
+  return "status-buff";
+}
+
+function getStatusLabel(s) {
+  const labels = {
+    shield:`🛡${s.power}`, rock_wall:"🪨岩壁", passion_buff:"🔥激情",
+    def_down:`🔽防降${s.stacks}`, dark_corrosion:`🌑暗蚀${s.stacks}`, light_brand:"✨烙印",
+    poison:`☠毒${s.stacks}`, burn:`🔥灼${s.stacks}`,
+    stun:"💫眩晕", freeze:"❄️冰冻", imprison:"🔒禁锢", taunt:"😤嘲讽"
+  };
+  return labels[s.type] || s.type;
+}
+
+function getCardTypeName(type) {
+  return { attack:"Attack", shield:"Shield", heal:"Heal", buff:"Buff", special:"Special" }[type] || type;
+}
+
+function log(msg, type = "") {
+  const logDiv = document.getElementById("battleLog");
+  const entry = document.createElement("div");
+  entry.className = `log-entry log-${type}`;
+  entry.textContent = msg;
+  logDiv.appendChild(entry);
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+function showDamagePopup(targetId, text, className) {
+  const el = document.getElementById(targetId === "bossSprite" ? "bossSprite" : `player-${targetId}`);
+  if (!el) return;
+  const popup = document.createElement("div");
+  popup.className = `damage-popup ${className}`;
+  popup.textContent = text;
+  popup.style.left = "50%";
+  popup.style.top = "20%";
+  popup.style.transform = "translateX(-50%)";
+  el.style.position = "relative";
+  el.appendChild(popup);
+  setTimeout(() => popup.remove(), 1200);
+}
+
+function restartGame() {
+  document.getElementById("resultOverlay").classList.remove("show");
+  document.getElementById("battleLog").innerHTML = "";
+  initGame();
+}
+
+// ========== 启动 ==========
+window.onload = initGame;
+</script>
+</body>
+</html>
