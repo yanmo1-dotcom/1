@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 Java 作品集 | Personal Portfolio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: rgba(30, 41, 59, 0.6);
+            --bg-card-hover: rgba(51, 65, 85, 0.8);
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+            --accent-pink: #ec4899;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(148, 163, 184, 0.15);
+            --glow-blue: rgba(59, 130, 246, 0.3);
+            --glow-purple: rgba(139, 92, 246, 0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* 动态背景 */
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 30%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(2deg); }
+        }
+
+        /* 导航栏 */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 16px 40px;
+            background: rgba(10, 14, 26, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        /* Hero 区域 */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 120px 24px 80px;
+            position: relative;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 100px;
+            font-size: 0.875rem;
+            color: var(--accent-blue);
+            margin-bottom: 32px;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .hero-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            animation: fadeInUp 0.8s ease 0.1s both;
+        }
+
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 50%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin-bottom: 40px;
+            animation: fadeInUp 0.8s ease 0.2s both;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 48px;
+            margin-bottom: 48px;
+            animation: fadeInUp 0.8s ease 0.3s both;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            animation: fadeInUp 0.8s ease 0.4s both;
+        }
+
+        .btn {
+            padding: 14px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            box-shadow: 0 4px 20px var(--glow-blue);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--glow-purple);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-blue);
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: bounce 2s infinite;
+            color: var(--text-muted);
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(10px); }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 内容区域 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .section {
+            padding: 80px 0;
+        }
+
+        .section-header {
+            margin-bottom: 48px;
+        }
+
+        .section-tag {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            color: var(--accent-purple);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section h2 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .section-desc {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        /* 卡片网格 */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 28px;
+            text-decoration: none;
+            color: inherit;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            display: block;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--card-accent, var(--accent-blue)), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            background: var(--bg-card-hover);
+            border-color: rgba(59, 130, 246, 0.4);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 30px var(--card-glow, var(--glow-blue));
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 5px 12px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: var(--accent-blue);
+            font-weight: 500;
+        }
+
+        .play-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: var(--accent-green);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            font-size: 0.925rem;
+            margin-bottom: 20px;
+            line-height: 1.7;
+        }
+
+        .tech {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tech span {
+            padding: 4px 10px;
+            background: rgba(148, 163, 184, 0.1);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: 'Cascadia Code', Consolas, monospace;
+        }
+
+        .card-arrow {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            color: var(--text-muted);
+            transition: all 0.3s;
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+
+        .card:hover .card-arrow {
+            opacity: 1;
+            transform: translateX(0);
+            color: var(--accent-blue);
+        }
+
+        /* 分类颜色 */
+        .category-game .tag { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: var(--accent-orange); }
+        .category-game { --card-accent: var(--accent-orange); --card-glow: rgba(245, 158, 11, 0.2); }
+
+        .category-web .tag { background: rgba(6, 182, 212, 0.1); border-color: rgba(6, 182, 212, 0.3); color: var(--accent-cyan); }
+        .category-web { --card-accent: var(--accent-cyan); --card-glow: rgba(6, 182, 212, 0.2); }
+
+        .category-study .tag { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: var(--accent-green); }
+        .category-study { --card-accent: var(--accent-green); --card-glow: rgba(16, 185, 129, 0.2); }
+
+        /* 页脚 */
+        footer {
+            padding: 60px 24px 40px;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            margin-top: 40px;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+
+        .footer-text {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-blue);
+        }
+
+        .copyright {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* GitHub 悬浮按钮 */
+        .gh-dir-fab {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            z-index: 9999;
+            background: rgba(30, 41, 59, 0.9);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 12px 20px;
+            font-size: 0.85rem;
+            font-family: 'Cascadia Code', Consolas, monospace;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s;
+        }
+
+        .gh-dir-fab:hover {
+            border-color: var(--accent-blue);
+            background: rgba(51, 65, 85, 0.95);
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            nav { padding: 12px 20px; }
+            .nav-links { display: none; }
+            .hero-stats { gap: 24px; }
+            .stat-number { font-size: 1.75rem; }
+            .grid { grid-template-columns: 1fr; }
+            .section { padding: 60px 0; }
+            .section h2 { font-size: 1.75rem; }
+            .hero-buttons { flex-direction: column; width: 100%; }
+            .btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-gradient"></div>
+
+<nav>
+    <div class="logo">⚡ Java Portfolio</div>
+    <ul class="nav-links">
+        <li><a href="#games">游戏</a></li>
+        <li><a href="#web">网络应用</a></li>
+        <li><a href="#study">学习练习</a></li>
+        <li><a href="https://github.com/yanmo1-dotcom/1/tree/main/" target="_blank">GitHub</a></li>
+    </ul>
+</nav>
+
+<section class="hero">
+    <div class="hero-badge">
+        <span class="dot"></span>
+        11 个项目已做成网页版，点击即玩
+    </div>
+    <h1>我的 <span class="gradient-text">Java 作品集</span></h1>
+    <p>从桌面游戏、网络应用到算法题解，这里收录了我学习 Java 过程中做过的全部项目。每个项目都有独立页面，点击卡片即可查看详情或在线体验。</p>
+    
+    <div class="hero-stats">
+        <div class="stat-item">
+            <div class="stat-number">14</div>
+            <div class="stat-label">总项目数</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">11</div>
+            <div class="stat-label">可在线玩</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">3</div>
+            <div class="stat-label">技术分类</div>
+        </div>
+    </div>
+
+    <div class="hero-buttons">
+        <a href="#games" class="btn btn-primary">🎮 开始探索</a>
+        <a href="https://github.com/yanmo1-dotcom/1/tree/main/" target="_blank" class="btn btn-secondary">📁 查看源码</a>
+    </div>
+
+    <div class="scroll-indicator">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M19 12l-7 7-7-7"/>
+        </svg>
+    </div>
+</section>
+
+<div class="container">
+    <section class="section" id="games">
+        <div class="section-header">
+            <span class="section-tag">Games</span>
+            <h2>🎮 游戏项目</h2>
+            <p class="section-desc">用 Java 写的各类桌面和网页游戏，从休闲到策略都有</p>
+        </div>
+        <div class="grid">
+            <a class="card category-game" href="ice-game-play.html">
+                <div class="card-top">
+                    <span class="tag">桌面游戏 · Java Swing</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>冰球游戏 Ice Game</h3>
+                <p>Java Swing 写的冰球对战，支持单人打 AI 和局域网双人联机，先得 7 分获胜。网页版可直接玩（单人 vs AI）。</p>
+                <div class="tech"><span>Java 17</span><span>Swing</span><span>Socket</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-game" href="kapai-play.html">
+                <div class="card-top">
+                    <span class="tag">桌面游戏 · libGDX</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>卡牌游戏 Kapai</h3>
+                <p>一款 Roguelike 卡牌游戏，包含战斗、卡牌、生物、效果等完整系统，多模块 Maven 工程。网页版可直接玩卡牌战斗。</p>
+                <div class="tech"><span>Java 17</span><span>libGDX</span><span>Maven</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-game" href="voxel-terraria.html">
+                <div class="card-top">
+                    <span class="tag">桌面游戏 · LWJGL</span>
+                </div>
+                <h3>体素泰拉瑞亚 Voxel Terraria</h3>
+                <p>体素风格的沙盒游戏，含世界生成、实体、背包、粒子、音频、存档等模块。</p>
+                <div class="tech"><span>Java</span><span>LWJGL</span><span>OpenGL</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-game" href="racing-game-play.html">
+                <div class="card-top">
+                    <span class="tag">桌面游戏 · Java Swing</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>飞机射击 Racing Game</h3>
+                <p>飞机射击类游戏，含敌机、Boss、子弹、道具、粒子爆炸、波次管理、高分记录等。网页版可直接玩。</p>
+                <div class="tech"><span>Java</span><span>Swing</span><span>音效</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-game" href="chise-play.html">
+                <div class="card-top">
+                    <span class="tag">桌面游戏 · libGDX</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>奇斯要塞 Chise Yaosai</h3>
+                <p>Jackal 同类型的回合制策略射击游戏，含步兵、吉普、坦克、激光、关卡和计分系统。网页版可直接玩。</p>
+                <div class="tech"><span>Java</span><span>libGDX</span><span>Gradle</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-game" href="chise2.html">
+                <div class="card-top">
+                    <span class="tag">桌面 / 网页游戏 · libGDX</span>
+                </div>
+                <h3>奇斯 2 Chise2</h3>
+                <p>奇斯要塞的升级版，在原作基础上新增了 Web 网页运行版本（GWT 编译到浏览器）。</p>
+                <div class="tech"><span>Java</span><span>libGDX</span><span>GWT</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+        </div>
+    </section>
+
+    <section class="section" id="web">
+        <div class="section-header">
+            <span class="section-tag">Web Apps</span>
+            <h2>🌐 网络应用</h2>
+            <p class="section-desc">基于 Socket、Spring Boot、WebSocket 等技术的网络应用</p>
+        </div>
+        <div class="grid">
+            <a class="card category-web" href="chat-room-java-play.html">
+                <div class="card-top">
+                    <span class="tag">网络应用 · Java Socket</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>命令行聊天室 Chat Room</h3>
+                <p>纯 Java Socket 实现的多房间聊天室，含服务端、客户端、房间管理、日志服务。网页版模拟终端可交互。</p>
+                <div class="tech"><span>Java</span><span>Socket</span><span>多线程</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-web" href="web-chat-room-play.html">
+                <div class="card-top">
+                    <span class="tag">Web 应用 · Spring Boot</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>Web 聊天室（Token 版）</h3>
+                <p>带用户登录 Token、数据库存储的网页聊天室，含桌面版、移动版、后台管理和五子棋页面。网页版可登录聊天。</p>
+                <div class="tech"><span>Spring Boot</span><span>WebSocket</span><span>MySQL</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-web" href="chat-demo.html">
+                <div class="card-top">
+                    <span class="tag">Web 前端 · STOMP</span>
+                </div>
+                <h3>聊天室前端 Demo</h3>
+                <p>使用 SockJS + STOMP 连接 WebSocket 后端的聊天室前端页面，本项目最初的入口页。</p>
+                <div class="tech"><span>HTML</span><span>SockJS</span><span>STOMP.js</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-web" href="sina-stock-play.html">
+                <div class="card-top">
+                    <span class="tag">Web 应用 · Spring Boot</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>A 股实时行情 Sina Stock</h3>
+                <p>抓取新浪财经接口的 A 股实时行情网站，支持搜索股票、查看行情，带 CSV 数据。网页版可搜索与排行。</p>
+                <div class="tech"><span>Spring Boot</span><span>新浪接口</span><span>HTML</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-web" href="api-play.html">
+                <div class="card-top">
+                    <span class="tag">后端服务 · Java</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>班级 API 服务</h3>
+                <p>基于 Token 权限的班级学生查询服务，不同 Token 看到不同范围的学生数据。网页版可输入 Token 查询。</p>
+                <div class="tech"><span>Java</span><span>Token 鉴权</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-web" href="gomoku-play.html">
+                <div class="card-top">
+                    <span class="tag">Web 小游戏 · 五子棋</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>五子棋 Gomoku</h3>
+                <p>Web 聊天室对战大厅里的五子棋游戏，15×15 棋盘，四方向五连判定。网页版支持双人/人机对战。</p>
+                <div class="tech"><span>HTML</span><span>CSS Grid</span><span>JS</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+        </div>
+    </section>
+
+    <section class="section" id="study">
+        <div class="section-header">
+            <span class="section-tag">Learning</span>
+            <h2>📚 学习与练习</h2>
+            <p class="section-desc">学习过程中的练习项目和算法题解</p>
+        </div>
+        <div class="grid">
+            <a class="card category-study" href="number-play.html">
+                <div class="card-top">
+                    <span class="tag">命令行 · Java</span>
+                    <span class="play-tag">▶ 点击即玩</span>
+                </div>
+                <h3>猜数字 Number Who</h3>
+                <p>1-50 的猜数字游戏，8 次机会，带冷却时间、存档统计（胜场、猜测历史）功能。网页版可直接玩。</p>
+                <div class="tech"><span>Java</span><span>HTTP</span><span>JSON</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-study" href="leetcode.html">
+                <div class="card-top">
+                    <span class="tag">算法练习 · Java</span>
+                </div>
+                <h3>力扣题解集合</h3>
+                <p>LeetCode 算法题的 Java 题解，含石子游戏、移除可疑方法、最小回文排列、单词按键次数等。</p>
+                <div class="tech"><span>Java</span><span>算法</span><span>LeetCode</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+            <a class="card category-study" href="legacy.html">
+                <div class="card-top">
+                    <span class="tag">练习 · Java</span>
+                </div>
+                <h3>早期练习 旧的</h3>
+                <p>早期学习时写的练习：纯标准库实现 JSON 读写示例，以及 VSCode 配置和玩家存档文件。</p>
+                <div class="tech"><span>Java</span><span>JSON</span><span>配置</span></div>
+                <div class="card-arrow">→</div>
+            </a>
+        </div>
+    </section>
+</div>
+
+<footer>
+    <div class="footer-content">
+        <div class="footer-logo">⚡ Java Portfolio</div>
+        <p class="footer-text">共 14 个项目 · 用 Java 与 Web 技术搭建 · 点击任意卡片进入项目详情页</p>
+        <div class="footer-links">
+            <a href="#games">游戏</a>
+            <a href="#web">网络应用</a>
+            <a href="#study">学习练习</a>
+            <a href="https://github.com/yanmo1-dotcom/1/tree/main/" target="_blank">GitHub</a>
+        </div>
+        <p class="copyright">© 2026 Personal Portfolio. Built with Java & ❤️</p>
+    </div>
+</footer>
+
+<a class="gh-dir-fab" href="https://github.com/yanmo1-dotcom/1/tree/main/" target="_blank" rel="noopener">📁 GitHub 仓库</a>
+
+</body>
+</html>
