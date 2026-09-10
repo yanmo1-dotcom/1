@@ -1,0 +1,33 @@
+{"sender":null,"client_ip":"/127.0.0.1:53563","type":"login","content":"常天昊","timestamp":"2026-07-21 13:53:20","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:53563","type":"chat","content":"/help","timestamp":"2026-07-21 13:53:41","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:53567","type":"login","content":"cth","timestamp":"2026-07-21 13:53:55","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:53571","type":"login","content":"cth2","timestamp":"2026-07-21 13:54:04","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:53563","type":"chat","content":"/help","timestamp":"2026-07-21 13:54:23","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:53563","type":"chat","content":" /help","timestamp":"2026-07-21 13:56:16","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:53563","type":"chat","content":"/cth1","timestamp":"2026-07-21 13:56:53","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:53563","type":"chat","content":"/list","timestamp":"2026-07-21 14:06:02","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:63413","type":"login","content":"cth","timestamp":"2026-07-21 15:05:46","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:63417","type":"login","content":"cth","timestamp":"2026-07-21 15:05:51","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:63413","type":"chat","content":"/help","timestamp":"2026-07-21 15:06:08","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:63421","type":"login","content":"cth2","timestamp":"2026-07-21 15:06:36","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:63417","type":"chat","content":"/friend add cth2","timestamp":"2026-07-21 15:07:32","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:63417","type":"chat","content":"/whisper cth2 今晚一起打游戏吗？","timestamp":"2026-07-21 15:08:10","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:59775","type":"login","content":"cth","timestamp":"2026-07-21 15:16:50","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:59776","type":"login","content":"cth1","timestamp":"2026-07-21 15:16:58","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:59780","type":"login","content":"cth2","timestamp":"2026-07-21 15:17:06","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:59775","type":"chat","content":"jiayou","timestamp":"2026-07-21 15:17:15","target":null}
+{"sender":"cth1","client_ip":"/127.0.0.1:59776","type":"chat","content":"shoudao1","timestamp":"2026-07-21 15:17:20","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:59775","type":"chat","content":"/create secret 123","timestamp":"2026-07-21 15:17:54","target":null}
+{"sender":"cth1","client_ip":"/127.0.0.1:59776","type":"chat","content":"/join secret","timestamp":"2026-07-21 15:18:10","target":null}
+{"sender":"cth1","client_ip":"/127.0.0.1:59776","type":"chat","content":"/join secret 123","timestamp":"2026-07-21 15:18:22","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:59775","type":"chat","content":"nb","timestamp":"2026-07-21 15:18:31","target":null}
+{"sender":"cth1","client_ip":"/127.0.0.1:59776","type":"chat","content":"/leave","timestamp":"2026-07-21 15:18:52","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:59775","type":"chat","content":"123","timestamp":"2026-07-21 15:18:58","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:59775","type":"chat","content":"/whisper cth2 123","timestamp":"2026-07-21 15:19:39","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:62757","type":"login","content":"cth3","timestamp":"2026-07-21 15:20:07","target":null}
+{"sender":"cth3","client_ip":"/127.0.0.1:62757","type":"chat","content":"/whisper cth1 hello","timestamp":"2026-07-21 15:20:19","target":null}
+{"sender":"cth2","client_ip":"/127.0.0.1:59780","type":"chat","content":"666","timestamp":"2026-07-21 15:21:52","target":null}
+{"sender":"cth1","client_ip":"/127.0.0.1:59776","type":"chat","content":"56","timestamp":"2026-07-21 15:22:07","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:58138","type":"login","content":"cth","timestamp":"2026-07-21 15:39:02","target":null}
+{"sender":null,"client_ip":"/127.0.0.1:58146","type":"login","content":"cth1","timestamp":"2026-07-21 15:39:09","target":null}
+{"sender":"cth","client_ip":"/127.0.0.1:58138","type":"chat","content":"/whisper cth1 你好","timestamp":"2026-07-21 15:40:06","target":null}
